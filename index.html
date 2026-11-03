@@ -14,9 +14,66 @@
 <script type="module" src="isla.js"></script>
 </head>
 <body data-ch="isla">
+
+<!-- PANTALLA DE INTRODUCCIÓN EDITORIAL PREVIA -->
+<div id="intro-overlay" class="intro-overlay" role="dialog" aria-modal="true" aria-label="Introducción al proyecto Aula Ambiental Bocachica">
+  <div class="intro-modal">
+    <div class="intro-header">
+      <span class="intro-eyebrow">Tierra Bomba · Aula Ambiental · Cartagena</span>
+      <p class="intro-lead">Un modelo interactivo para imaginar, cuidar y construir el territorio.</p>
+    </div>
+
+    <div class="intro-question-wrapper">
+      <h2 class="intro-question">¿Cómo podemos transformar el futuro de Bocachica sin perder la memoria, los saberes y la identidad de quienes la habitan?</h2>
+    </div>
+
+    <div class="intro-benefits-header">
+      <span class="intro-sub-eyebrow">Objetivos del proyecto</span>
+      <h3>Tres beneficios del proyecto</h3>
+    </div>
+
+    <div class="intro-benefits-grid">
+      <div class="benefit-card card-01">
+        <span class="benefit-num">01</span>
+        <h4>Preservar la memoria y fortalecer la identidad</h4>
+        <p>Recuperar las historias, los oficios, las tradiciones y los conocimientos de Bocachica, vinculando a niños, jóvenes y habitantes en la construcción de una memoria territorial compartida.</p>
+      </div>
+
+      <div class="benefit-card card-02">
+        <span class="benefit-num">02</span>
+        <h4>Mejorar los espacios y promover el cuidado ambiental</h4>
+        <p>Investigar y desarrollar soluciones para la sombra, la vegetación, el agua y los residuos, buscando espacios educativos y comunitarios más confortables y sostenibles.</p>
+      </div>
+
+      <div class="benefit-card card-03">
+        <span class="benefit-num">03</span>
+        <h4>Impulsar el aprendizaje y la participación comunitaria</h4>
+        <p>Convertir el territorio en un espacio de aprendizaje donde comunidad, estudiantes e investigadores puedan compartir conocimientos, proponer soluciones y participar en las decisiones sobre su entorno.</p>
+      </div>
+    </div>
+
+    <div class="intro-quote-wrapper">
+      <p class="intro-quote">«Bocachica no es solo un lugar para estudiar. Es un territorio que tiene historias que contar, conocimientos que compartir y un futuro que construir colectivamente.»</p>
+    </div>
+
+    <div class="intro-actions">
+      <button id="btn-explore" class="btn-explore" type="button">
+        <span>Explorar el territorio</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
 <header class="brand">
-  <h1>Tierra Bomba</h1>
-  <p class="over">Aula Ambiental, Cartagena</p>
+  <div>
+    <h1>Tierra Bomba</h1>
+    <p class="over">Aula Ambiental, Cartagena</p>
+  </div>
+  <button id="open-intro" class="btn-intro-trigger" type="button" aria-label="Ver introducción y objetivos del proyecto">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+    <span>Objetivos del proyecto</span>
+  </button>
 </header>
 
 <nav class="chapters" id="chapters" aria-label="Capítulos"></nav>
@@ -39,5 +96,38 @@
 <section class="story" id="story" aria-live="polite"></section>
 
 <noscript><p class="noscript">Esta página necesita JavaScript para mostrar el modelo 3D de la isla.</p></noscript>
+
+<script>
+  (function() {
+    const overlay = document.getElementById('intro-overlay');
+    const btnExplore = document.getElementById('btn-explore');
+    const openIntro = document.getElementById('open-intro');
+
+    function closeIntro() {
+      if (overlay) {
+        overlay.classList.add('dismissed');
+      }
+    }
+
+    function showIntro() {
+      if (overlay) {
+        overlay.classList.remove('dismissed');
+      }
+    }
+
+    if (btnExplore) {
+      btnExplore.addEventListener('click', closeIntro);
+    }
+    if (openIntro) {
+      openIntro.addEventListener('click', showIntro);
+    }
+
+    window.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && overlay && !overlay.classList.contains('dismissed')) {
+        closeIntro();
+      }
+    });
+  })();
+</script>
 </body>
 </html>
