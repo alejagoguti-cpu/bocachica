@@ -50,14 +50,20 @@ export function createTerritoryModel(host,status){
  function drawSoftware(){const ctx=renderer.domElement.getContext('2d');ctx.clearRect(0,0,VW(),VH());if(!terrainData)return;const layers=[[...wallFaces,...terrainFaces],roadsOn?roadFaces:[],[...(constructionGroup.visible?constructionFaces.filter(f=>f.roof||camera.position.distanceTo(f.center)<300):[]),...(buildingGroup.visible?buildingFaces:[])]];for(const list of layers){const projected=list.map(face=>({face,p:face.v.map(project)})).filter(x=>x.p.every(p=>p.z<1&&p.z>-1));projected.sort((a,b)=>(b.p[0].z+b.p[1].z+b.p[2].z)-(a.p[0].z+a.p[1].z+a.p[2].z));for(const {face,p}of projected){if(face.uv&&texture){drawTextureTriangle(ctx,face,p);}else{trianglePath(ctx,...p);ctx.fillStyle=face.color||'#d8dfd3';ctx.fill();}}}}
  async function loadTerrain(){
   status('Cargando la isla…');
-  const [sat,mask]=await Promise.all([image(SOURCE+'textures/sat_base.jpg'),image(SOURCE+'textures/isla_mascara.png')]);
+  const [sat,mask]=await Promise.all([
+   image('assets/textures/sat_base.jpg').catch(()=>image(SOURCE+'textures/sat_base.jpg')),
+   image('assets/textures/isla_mascara.png').catch(()=>image(SOURCE+'textures/isla_mascara.png'))
+  ]);
   const W=software?1024:1445,H=Math.round(W*2578/1445),canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');ctx.drawImage(sat,231/2560*sat.width,1734/4352*sat.height,1445/2560*sat.width,2578/4352*sat.height,0,0,W,H);
   const maskCanvas=document.createElement('canvas');maskCanvas.width=W;maskCanvas.height=H;const mctx=maskCanvas.getContext('2d');mctx.drawImage(mask,0,0,W,H);const maskPixels=mctx.getImageData(0,0,W,H).data;
   const pixels=ctx.getImageData(0,0,W,H);for(let i=0;i<pixels.data.length;i+=4)pixels.data[i+3]=maskPixels[i];ctx.putImageData(pixels,0,0);texture=canvas;modelTexture=document.createElement('canvas');modelTexture.width=W;modelTexture.height=H;const modelCtx=modelTexture.getContext('2d'),modelPixels=modelCtx.createImageData(W,H);for(let i=0;i<modelPixels.data.length;i+=4){modelPixels.data[i]=220;modelPixels.data[i+1]=228;modelPixels.data[i+2]=218;modelPixels.data[i+3]=maskPixels[i];}modelCtx.putImageData(modelPixels,0,0);
   const alpha=(u,v)=>maskPixels[(Math.min(H-1,Math.max(0,Math.round(v*(H-1))))*W+Math.min(W-1,Math.max(0,Math.round(u*(W-1)))))*4];
   const geo={z:15,x0:9502+231/256,y0:15426+1734/256,nx:1445/256,ny:2578/256};
   const heightTiles=new Map(),tz=12,corners=[[0,0],[1,1]].map(([u,v])=>tileLL(geo.x0+u*geo.nx,geo.y0+v*geo.ny,geo.z)).map(ll=>llTile(...ll,tz));
-  const tasks=[];for(let x=Math.floor(corners[0][0]);x<=Math.floor(corners[1][0]);x++)for(let y=Math.floor(corners[0][1]);y<=Math.floor(corners[1][1]);y++)tasks.push((async()=>{const img=await image(`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${tz}/${x}/${y}.png`);const c=document.createElement('canvas');c.width=c.height=256;const context=c.getContext('2d');context.drawImage(img,0,0);heightTiles.set(x+','+y,context.getImageData(0,0,256,256).data);})());
+  const tasks=[];for(let x=Math.floor(corners[0][0]);x<=Math.floor(corners[1][0]);x++)for(let y=Math.floor(corners[0][1]);y<=Math.floor(corners[1][1]);y++)tasks.push((async()=>{
+   const img=await image(`assets/elevation/${x}_${y}.png`).catch(()=>image(`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${tz}/${x}/${y}.png`));
+   const c=document.createElement('canvas');c.width=c.height=256;const context=c.getContext('2d');context.drawImage(img,0,0);heightTiles.set(x+','+y,context.getImageData(0,0,256,256).data);
+  })());
   const results=await Promise.allSettled(tasks);reliefReady=results.every(r=>r.status==='fulfilled');
   function elevation(lon,lat){const [x,y]=llTile(lon,lat,tz),data=heightTiles.get(Math.floor(x)+','+Math.floor(y));if(!data)return 0;const ix=Math.max(0,Math.min(255,Math.floor((x-Math.floor(x))*256))),iy=Math.max(0,Math.min(255,Math.floor((y-Math.floor(y))*256))),i=(iy*256+ix)*4;return data[i]*256+data[i+1]+data[i+2]/256-32768;}
   elevationAt=elevation;
@@ -66,18 +72,13 @@ export function createTerritoryModel(host,status){
   const edgeCount=new Map();const edgeKey=(a,b)=>a<b?a+','+b:b+','+a;
   const add=(a,b,c)=>{indices.push(a,b,c);terrainFaces.push({v:[vertices[a],vertices[b],vertices[c]],uv:[...uv[a],...uv[b],...uv[c]],color:'#d5ddcc'});for(const [x,y]of [[a,b],[b,c],[c,a]]){const key=edgeKey(x,y),prev=edgeCount.get(key);edgeCount.set(key,prev?{...prev,count:prev.count+1}:{a:x,b:y,count:1});}};
   for(let j=0;j<NY;j++)for(let i=0;i<NX;i++){if(Math.max(alpha(i/NX,j/NY),alpha((i+1)/NX,j/NY),alpha(i/NX,(j+1)/NY),alpha((i+1)/NX,(j+1)/NY),alpha((i+.5)/NX,(j+.5)/NY))<128)continue;const a=j*(NX+1)+i,b=a+1,d=a+NX+1,e=d+1;add(a,d,b);add(b,d,e);}
-  // Trace the source mask with marching squares; coastline walls follow its
-  // contour instead of the much coarser terrain grid. The lower plinth is an
-  // exhibition support and never represents bathymetry.
   const cases={1:[[3,0]],2:[[0,1]],3:[[3,1]],4:[[1,2]],5:[[3,0],[1,2]],6:[[0,2]],7:[[3,2]],8:[[2,3]],9:[[0,2]],10:[[0,1],[2,3]],11:[[1,2]],12:[[3,1]],13:[[0,1]],14:[[3,0]]};
-  for(let py=0;py<H-4;py+=4)for(let px=0;px<W-4;px+=4){
-   const coords=[[px,py],[px+4,py],[px+4,py+4],[px,py+4]],values=coords.map(([x,y])=>maskPixels[(y*W+x)*4]),code=values.reduce((n,v,i)=>n+(v>=128?1<<i:0),0);if(!cases[code])continue;
+  for(let py=0;py<H-6;py+=6)for(let px=0;px<W-6;px+=6){
+   const coords=[[px,py],[px+6,py],[px+6,py+6],[px,py+6]],values=coords.map(([x,y])=>maskPixels[(y*W+x)*4]),code=values.reduce((n,v,i)=>n+(v>=128?1<<i:0),0);if(!cases[code])continue;
    const edgePoint=edge=>{const pairs=[[0,1],[1,2],[2,3],[3,0]],[i,j]=pairs[edge],t=(128-values[i])/(values[j]-values[i]||1),x=coords[i][0]+(coords[j][0]-coords[i][0])*t,y=coords[i][1]+(coords[j][1]-coords[i][1])*t,[lon,lat]=tileLL(geo.x0+x/W*geo.nx,geo.y0+y/H*geo.ny,geo.z);return local(lon,lat,elevation(lon,lat));};
    for(const [ea,eb]of cases[code]){const a=edgePoint(ea),b=edgePoint(eb),c=new THREE.Vector3(b.x,-.06,b.z),d=new THREE.Vector3(a.x,-.06,a.z);wallFaces.push({v:[a,b,c],color:'#759793'},{v:[a,c,d],color:'#7d9e99'});}
   }
   terrainData={vertices,indices,heightValues};
-  // Sample the displayed triangle surface, so streets stay on the mesh
-  // instead of crossing between independent elevation samples.
   elevationAt=(lon,lat)=>{const [tx,ty]=llTile(lon,lat,geo.z),gx=(tx-geo.x0)/geo.nx*NX,gy=(ty-geo.y0)/geo.ny*NY,ix=Math.max(0,Math.min(NX-1,Math.floor(gx))),iy=Math.max(0,Math.min(NY-1,Math.floor(gy))),fx=Math.max(0,Math.min(1,gx-ix)),fy=Math.max(0,Math.min(1,gy-iy)),a=iy*(NX+1)+ix,b=a+1,d=a+NX+1,e=d+1;return fx+fy<=1?heightValues[a]+(heightValues[b]-heightValues[a])*fx+(heightValues[d]-heightValues[a])*fy:heightValues[e]+(heightValues[d]-heightValues[e])*(1-fx)+(heightValues[b]-heightValues[e])*(1-fy);};
   if(!software){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices.flatMap(v=>v.toArray()),3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv.flatMap(([u,v])=>[u/W,1-v/H]),2));g.setIndex(indices);g.computeVertexNormals();const mapTexture=new THREE.CanvasTexture(canvas);mapTexture.colorSpace=THREE.SRGBColorSpace;terrainMesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({map:mapTexture,alphaTest:.5,side:THREE.DoubleSide,roughness:1}));terrainGroup.add(terrainMesh);const walls=new THREE.BufferGeometry();walls.setAttribute('position',new THREE.Float32BufferAttribute(wallFaces.flatMap(f=>f.v.flatMap(v=>v.toArray())),3));walls.computeVertexNormals();terrainGroup.add(new THREE.Mesh(walls,new THREE.MeshStandardMaterial({color:'#789a95',side:THREE.DoubleSide,roughness:1})));}
   ready=true;dirty=true;landmarks.forEach(item=>item.position=local(...item.coord,Math.max(0,elevationAt(...item.coord))+item.lift));pointLayers.forEach(placePoints);emit('load',{});status(reliefReady?'':'La isla cargó sin relieve: no se pudieron descargar las alturas.');
@@ -86,15 +87,33 @@ export function createTerritoryModel(host,status){
  async function loadRoads(){
   const data=await fetch('assets/vias_tierra_bomba.json').then(r=>{if(!r.ok)throw Error('Vías no disponibles');return r.json();});const packed=[];
   for(const road of data.roads){
-   // Width is cartographic emphasis, not a surveyed street dimension.
-   const half=['path','footway','steps'].includes(road.type)?.13:.25;
+   const isPath=['path','footway','steps','track'].includes(road.type);
+   const half=isPath?.65:1.25;
    for(let i=1;i<road.points.length;i++){
     const aa=road.points[i-1],bb=road.points[i],length=local(...aa).distanceTo(local(...bb)),steps=Math.max(1,Math.ceil(length/2));
-    for(let k=0;k<steps;k++){const point=t=>{const lon=aa[0]+(bb[0]-aa[0])*t,lat=aa[1]+(bb[1]-aa[1])*t;return local(lon,lat,Math.max(0,elevationAt(lon,lat))+.65);};const a=point(k/steps),b=point((k+1)/steps),delta=b.clone().sub(a),len=Math.hypot(delta.x,delta.z);if(len<.001)continue;const n=new THREE.Vector3(-delta.z/len*half,0,delta.x/len*half),v=[a.clone().add(n),b.clone().add(n),b.clone().sub(n),a.clone().sub(n)];for(const ids of [[0,1,2],[0,2,3]]){const tri=ids.map(j=>v[j]);roadFaces.push({v:tri,color:['path','footway','steps'].includes(road.type)?'#d5c497':'#ede4ce'});packed.push(...tri.flatMap(x=>x.toArray()));}}
+    for(let k=0;k<steps;k++){
+     const point=t=>{const lon=aa[0]+(bb[0]-aa[0])*t,lat=aa[1]+(bb[1]-aa[1])*t;return local(lon,lat,Math.max(0,elevationAt(lon,lat))+1.0);};
+     const a=point(k/steps),b=point((k+1)/steps),delta=b.clone().sub(a),len=Math.hypot(delta.x,delta.z);
+     if(len<.001)continue;
+     const n=new THREE.Vector3(-delta.z/len*half,0,delta.x/len*half),v=[a.clone().add(n),b.clone().add(n),b.clone().sub(n),a.clone().sub(n)];
+     for(const ids of [[0,1,2],[0,2,3]]){
+      const tri=ids.map(j=>v[j]);
+      roadFaces.push({v:tri,color:isPath?'#cf9b6d':'#eedcb5'});
+      packed.push(...tri.flatMap(x=>x.toArray()));
+     }
+    }
    }
   }
-  if(!software&&packed.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(packed,3));g.computeVertexNormals();roadGroup.add(new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:'#eee4cc',side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2})));}
-  host.dataset.roadCount=String(data.roads.length);host.dataset.roadSource=data.source;dirty=true;
+  if(!software&&packed.length){
+   const g=new THREE.BufferGeometry();
+   g.setAttribute('position',new THREE.Float32BufferAttribute(packed,3));
+   g.computeVertexNormals();
+   roadGroup.add(new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:'#f4ede2',side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-4})));
+  }
+  host.dataset.roadCount=String(data.roads.length);
+  host.dataset.roadSource=data.source;
+  window.__islandRoads=data.roads;
+  dirty=true;
  }
  async function loadConstructionFootprints(){
   const response=await fetch('assets/construcciones_tierra_bomba.json.gz');if(!response.ok)throw Error('No se pudo cargar la capa insular de construcciones');
@@ -103,13 +122,26 @@ export function createTerritoryModel(host,status){
   for(const [sourceIndex,height,rawRing] of data.buildings){
    const ring=rawRing.length>3&&rawRing[0][0]===rawRing.at(-1)[0]&&rawRing[0][1]===rawRing.at(-1)[1]?rawRing.slice(0,-1):rawRing;
    if(ring.length<3)continue;const lon=ring.reduce((a,p)=>a+p[0],0)/ring.length,lat=ring.reduce((a,p)=>a+p[1],0)/ring.length;
-   const ground=elevationAt(lon,lat),center=local(lon,lat,ground),shape=new THREE.Shape(),points=ring.map(ll=>local(...ll));
-   shape.moveTo(points[0].x,-points[0].z);for(let i=1;i<points.length;i++)shape.lineTo(points[i].x,-points[i].z);shape.closePath();
+   const ground=elevationAt(lon,lat),center=local(lon,lat,ground),points=ring.map(ll=>local(...ll));
    if(height===null||!Number.isFinite(height)||height<=0)continue;
-   // Source-provided reference massing only: never a measured-height claim.
-   const geometry=new THREE.ExtrudeGeometry(shape,{depth:height*UNIT,bevelEnabled:false,steps:1});geometry.rotateX(-Math.PI/2);geometry.translate(0,ground*UNIT,0);const positions=geometry.attributes.position;
-   for(let i=0;i<positions.count;i+=3){const v=[0,1,2].map(k=>new THREE.Vector3().fromBufferAttribute(positions,i+k));const normal=v[1].clone().sub(v[0]).cross(v[2].clone().sub(v[0])).normalize();const roof=normal.y>.5;const bottom=normal.y<-.5;if(bottom)continue;const color=roof?'#fffefa':normal.x>.2?'#d4dcd8':'#edf0ec';constructionFaces.push({v,color,roof,center,sourceIndex});if(!software)packed.push(...v.flatMap(p=>p.toArray()));}
-   constructionCount++;withHeight++;geometry.dispose();
+   const y0=ground*UNIT,y1=(ground+height)*UNIT;
+   const shapePoints=points.map(p=>new THREE.Vector2(p.x,p.z));
+   let triIndices=[];
+   try{triIndices=THREE.ShapeUtils.triangulateShape(shapePoints,[]);}catch{for(let i=1;i<points.length-1;i++)triIndices.push([0,i,i+1]);}
+   for(const [i0,i1,i2] of triIndices){
+    const v0=new THREE.Vector3(points[i0].x,y1,points[i0].z),v1=new THREE.Vector3(points[i1].x,y1,points[i1].z),v2=new THREE.Vector3(points[i2].x,y1,points[i2].z);
+    constructionFaces.push({v:[v0,v1,v2],color:'#fffefa',roof:true,center,sourceIndex});
+    if(!software)packed.push(v0.x,v0.y,v0.z,v1.x,v1.y,v1.z,v2.x,v2.y,v2.z);
+   }
+   for(let i=0;i<points.length;i++){
+    const j=(i+1)%points.length;
+    const a0=new THREE.Vector3(points[i].x,y0,points[i].z),a1=new THREE.Vector3(points[j].x,y0,points[j].z);
+    const b0=new THREE.Vector3(points[i].x,y1,points[i].z),b1=new THREE.Vector3(points[j].x,y1,points[j].z);
+    const col=points[i].x-points[j].x>.05?'#d4dcd8':'#edf0ec';
+    constructionFaces.push({v:[a0,b0,b1],color:col,roof:false,center,sourceIndex},{v:[a0,b1,a1],color:col,roof:false,center,sourceIndex});
+    if(!software)packed.push(a0.x,a0.y,a0.z,b0.x,b0.y,b0.z,b1.x,b1.y,b1.z,a0.x,a0.y,a0.z,b1.x,b1.y,b1.z,a1.x,a1.y,a1.z);
+   }
+   constructionCount++;withHeight++;
   }
   if(!software&&packed.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(packed,3));g.computeVertexNormals();constructionGroup.add(new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:'#fffefa',roughness:1,side:THREE.DoubleSide})));}
   host.dataset.constructionCount=String(constructionCount);host.dataset.constructionHeightStatus='reference';host.dataset.constructionSource=data.meta.source_file;
@@ -125,7 +157,7 @@ export function createTerritoryModel(host,status){
   buildingReady=count>0;host.dataset.revitMeshCount=String(count);dirty=true;
  }
  loadTerrain().then(()=>Promise.allSettled([loadRoads().catch(error=>console.warn('Vías no disponibles',error)),loadConstructionFootprints().catch(error=>{status('No se pudo cargar la capa insular de construcciones');console.error(error);}),])).catch(error=>{status('No se pudo construir la maqueta territorial. Revisa la conexión a los recursos.');console.error(error);});
- return{isTerritoryModel:true,setRoads(value){roadsOn=!!value;roadGroup.visible=roadsOn;dirty=true;},setBuildings(value){constructionGroup.visible=!!value;dirty=true;},setRevit(value){buildingGroup.visible=!!value;if(value&&!revitRequested){revitRequested=true;status('Cargando el modelo Revit…');loadBuildings().then(()=>status('Modelo Revit del sector modelado')).catch(error=>{status('No se pudo cargar el modelo Revit');console.warn(error);});}dirty=true;},getBuildingSummary(){return{count:constructionCount,referenceHeights:true};},on(name,fn){(handlers[name]||=[]).push(fn);},fitBounds(){reset();},resize,getPitch(){return pitch;},getBearing(){return bearing;},rotateTo(value){bearing=value;move();},easeTo:move,flyTo:move,zoomIn(){camera.position.sub(controls.target).multiplyScalar(.8).add(controls.target);dirty=true;},zoomOut(){camera.position.sub(controls.target).multiplyScalar(1.25).add(controls.target);dirty=true;},setLayoutProperty(id,key,value){if(value!=='visible')return;base=id==='satellite'?'satellite':'model';if(terrainMesh){terrainMesh.material.map=new THREE.CanvasTexture(base==='satellite'?texture:modelTexture);terrainMesh.material.map.colorSpace=THREE.SRGBColorSpace;terrainMesh.material.needsUpdate=true;}dirty=true;},setTerrain(value){terrainOn=!!value;if(!terrainData)return;terrainData.vertices.forEach((v,i)=>v.y=terrainOn?terrainData.heightValues[i]*UNIT:0);if(terrainMesh){const p=terrainMesh.geometry.attributes.position;terrainData.vertices.forEach((v,i)=>p.setY(i,v.y));p.needsUpdate=true;terrainMesh.geometry.computeVertexNormals();}dirty=true;},addPlace(el,coord,lift=4){el.style.position='absolute';labels.append(el);const item={el,coord,lift,position:local(...coord,Math.max(0,elevationAt(...coord))+lift)};landmarks.push(item);dirty=true;return{getElement:()=>el,remove(){el.remove();landmarks.splice(landmarks.indexOf(item),1);dirty=true;}};},
+ return{isTerritoryModel:true,elevation(lon,lat){return elevationAt(lon,lat);},getRoads(){return window.__islandRoads||[];},setRoads(value){roadsOn=!!value;roadGroup.visible=roadsOn;dirty=true;},setBuildings(value){constructionGroup.visible=!!value;dirty=true;},setRevit(value){buildingGroup.visible=!!value;if(value&&!revitRequested){revitRequested=true;status('Cargando el modelo Revit…');loadBuildings().then(()=>status('Modelo Revit del sector modelado')).catch(error=>{status('No se pudo cargar el modelo Revit');console.warn(error);});}dirty=true;},getBuildingSummary(){return{count:constructionCount,referenceHeights:true};},on(name,fn){(handlers[name]||=[]).push(fn);},fitBounds(){reset();},resize,getPitch(){return pitch;},getBearing(){return bearing;},rotateTo(value){bearing=value;move();},easeTo:move,flyTo:move,zoomIn(){camera.position.sub(controls.target).multiplyScalar(.8).add(controls.target);dirty=true;},zoomOut(){camera.position.sub(controls.target).multiplyScalar(1.25).add(controls.target);dirty=true;},setLayoutProperty(id,key,value){if(value!=='visible')return;base=id==='satellite'?'satellite':'model';if(terrainMesh){terrainMesh.material.map=new THREE.CanvasTexture(base==='satellite'?texture:modelTexture);terrainMesh.material.map.colorSpace=THREE.SRGBColorSpace;terrainMesh.material.needsUpdate=true;}dirty=true;},setTerrain(value){terrainOn=!!value;if(!terrainData)return;terrainData.vertices.forEach((v,i)=>v.y=terrainOn?terrainData.heightValues[i]*UNIT:0);if(terrainMesh){const p=terrainMesh.geometry.attributes.position;terrainData.vertices.forEach((v,i)=>p.setY(i,v.y));p.needsUpdate=true;terrainMesh.geometry.computeVertexNormals();}dirty=true;},addPlace(el,coord,lift=4){el.style.position='absolute';labels.append(el);const item={el,coord,lift,position:local(...coord,Math.max(0,elevationAt(...coord))+lift)};landmarks.push(item);dirty=true;return{getElement:()=>el,remove(){el.remove();landmarks.splice(landmarks.indexOf(item),1);dirty=true;}};},
   refreshPlaces(){landmarks.forEach(item=>item.position=local(...item.coord,Math.max(0,elevationAt(...item.coord))+item.lift));pointLayers.forEach(placePoints);dirty=true;},
   setPoints(id,points,opts={}){const layer={points:points.map(p=>({...p})),visible:opts.visible??true,lift:opts.lift,stroke:opts.stroke};placePoints(layer);pointLayers.set(id,layer);dirty=true;},
   setPointsVisible(id,value){const layer=pointLayers.get(id);if(layer){layer.visible=!!value;dirty=true;}},
@@ -133,9 +165,8 @@ export function createTerritoryModel(host,status){
   pickPoint(x,y,radius=14){let best=null,bd=radius;for(const layer of pointLayers.values()){if(!layer.visible)continue;for(const pt of layer.points){if(!pt.on)continue;const d=Math.hypot(pt.sx-x,pt.sy-y);if(d<bd){bd=d;best=pt.data;}}}return best;},
   screenToLonLat(x,y){const ray=new THREE.Raycaster();ray.setFromCamera(new THREE.Vector2(x/VW()*2-1,-(y/VH())*2+1),camera);const hit=new THREE.Vector3();if(!ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),0),hit))return null;const mx=hit.x/UNIT+origin[0],my=origin[1]-hit.z/UNIT;return[mx/R*180/Math.PI,(2*Math.atan(Math.exp(my/R))-Math.PI/2)*180/Math.PI];},
   requestRender(){dirty=true;},isReady(){return ready;},
-  project(lon,lat,h=0){const p=project(local(lon,lat,h));return{x:p.x,y:p.y,z:p.z,on:p.z<1&&p.z>-1};},
-  elevation(lon,lat){return Math.max(0,elevationAt(lon,lat));},
-  scale(){return Math.max(.35,Math.min(2.4,900/camera.position.distanceTo(controls.target)));},
+  project(lon,lat,height=0){const p=project(local(lon,lat,Math.max(0,elevationAt(lon,lat))+height));return{x:p.x,y:p.y,z:p.z,on:p.z<1&&p.z>-1&&p.x>-40&&p.y>-40&&p.x<VW()+40&&p.y<VH()+40};},
+  scale(){const dist=camera.position.distanceTo(controls.target);return Math.max(.55,Math.min(2.2,950/dist));},
   size(){return{w:VW(),h:VH()};},
-  getView(){const t=controls.target,mx=t.x/UNIT+origin[0],my=origin[1]-t.z/UNIT,d=camera.position.distanceTo(t);return{center:[mx/R*180/Math.PI,(2*Math.atan(Math.exp(my/R))-Math.PI/2)*180/Math.PI,t.y/UNIT],zoom:12.8+Math.log2(1500/d),pitch,bearing};}};
+  getView(){return{center:[-75.575+(controls.target.x/UNIT)/R*180/Math.PI,(2*Math.atan(Math.exp((origin[1]-controls.target.z/UNIT)/R))-Math.PI/2)*180/Math.PI,controls.target.y/UNIT],zoom:12.8+Math.log2(1500/camera.position.distanceTo(controls.target)),pitch,bearing};}};
 }

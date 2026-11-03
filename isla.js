@@ -68,7 +68,7 @@ const CAMERAS = {
   historia: {center: [-75.5800, 10.3215], zoom: 15.4, pitch: 54, bearing: -20},
   cuenta: {center: C, zoom: 13.2, pitch: 38, bearing: -12}
 };
-const CHAPTERS = ['isla', 'historia', 'cuenta'];
+const CHAPTERS = ['isla', 'mar', 'historia', 'cuenta'];
 const RUTAS_URL = 'maqueta/#rutas';
 const SPECIES_URL = 'https://anasoficasca-code.github.io/tierrabomba/';
 const CH_NAMES = {isla: 'Territorio', mar: 'Movilidad marítima', historia: 'Patrimonio', cuenta: 'Participación'};
@@ -172,11 +172,65 @@ function smooth(pts, it = 3) {
   return {pts: p, d, len: d[d.length - 1]};
 }
 function along(path, t) {
-  const target = t * path.len; let i = 1;
+  const target = Math.max(0, Math.min(path.len, t * path.len)); let i = 1;
   while (i < path.d.length - 1 && path.d[i] < target) i++;
   const k = (target - path.d[i - 1]) / ((path.d[i] - path.d[i - 1]) || 1), a = path.pts[i - 1], b = path.pts[i];
   return [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
 }
+function alongWithHeading(path, t, reverse = false) {
+  const target = Math.max(0, Math.min(path.len, t * path.len)); let i = 1;
+  while (i < path.d.length - 1 && path.d[i] < target) i++;
+  const k = (target - path.d[i - 1]) / ((path.d[i] - path.d[i - 1]) || 1), a = path.pts[i - 1], b = path.pts[i];
+  const lon = a[0] + (b[0] - a[0]) * k, lat = a[1] + (b[1] - a[1]) * k;
+  const hx = reverse ? (a[0] - b[0]) : (b[0] - a[0]);
+  const hy = reverse ? (a[1] - b[1]) : (b[1] - a[1]);
+  return {lon, lat, hx, hy};
+}
+function getProjectedVehicle(path, t, height = 1.2, reverse = false) {
+  const v = alongWithHeading(path, t, reverse);
+  const p = model.project(v.lon, v.lat, height);
+  if (!p.on) return null;
+  const step = 0.0001;
+  const pNext = model.project(v.lon + v.hx * step, v.lat + v.hy * step, height);
+  const angle = Math.atan2(pNext.y - p.y, pNext.x - p.x);
+  return {x: p.x, y: p.y, angle, on: p.on};
+}
+const islandRoutes = [];
+fetch('assets/equipamientos-movilidad.json')
+  .then(r => r.json())
+  .then(data => {
+    if (data?.routes) {
+      data.routes.filter(r => r.kind === 'land').forEach(r => {
+        islandRoutes.push({
+          id: r.id,
+          name: r.name,
+          path: smooth(r.points, 2),
+          motos: 2,
+          walkers: 3,
+          speedMoto: 0.08,
+          speedWalk: 0.02
+        });
+      });
+    }
+  }).catch(() => {});
+fetch('assets/vias_tierra_bomba.json')
+  .then(r => r.json())
+  .then(data => {
+    if (data?.roads) {
+      const top = data.roads.filter(r => r.points.length >= 45).slice(0, 5);
+      top.forEach((r, idx) => {
+        islandRoutes.push({
+          id: 'road-' + r.id,
+          name: r.name || 'Camino ' + idx,
+          path: smooth(r.points, 2),
+          motos: 1,
+          walkers: 2,
+          speedMoto: 0.06,
+          speedWalk: 0.018
+        });
+      });
+    }
+  }).catch(() => {});
 const lanchas = LANCHAS.map(r => ({...r, path: smooth(r.pts)}));
 const canal = smooth(CANAL);
 window.__rutas = {lanchas: lanchas.map(r => ({to: r.to, pts: r.path.pts})), canal: canal.pts};
@@ -236,25 +290,340 @@ function line(path, height, color, width, alpha) {
   }
   fx.globalAlpha = alpha; fx.strokeStyle = color; fx.lineWidth = width; fx.lineCap = 'round'; fx.lineJoin = 'round'; fx.stroke(); fx.globalAlpha = 1;
 }
-function particles(path, height, color, count, speed, time, size) {
-  for (let i = 0; i < count; i++) {
-    const t = (time * speed / path.len + i / count) % 1;
-    const [lon, lat] = along(path, t), q = model.project(lon, lat, height);
-    if (!q.on) continue;
-    fx.beginPath(); fx.arc(q.x, q.y, size + 5, 0, 7); fx.fillStyle = color; fx.globalAlpha = .22; fx.fill();
-    fx.globalAlpha = 1; fx.beginPath(); fx.arc(q.x, q.y, size, 0, 7); fx.fill();
-    fx.lineWidth = 1.5; fx.strokeStyle = '#0b2530'; fx.stroke();
+function drawLancha(fx, pos, angle, scale, time, id = 0) {
+  const s = Math.max(0.65, Math.min(2.0, scale));
+  const len = 17 * s;
+  const beam = 6.5 * s;
+
+  fx.save();
+  fx.translate(pos.x, pos.y);
+  fx.rotate(angle);
+
+  // Estela de espuma de agua en V (wake)
+  const wakeLen = 30 * s;
+  fx.beginPath();
+  fx.moveTo(-len * 0.42, 0);
+  fx.lineTo(-len * 0.42 - wakeLen, -beam * 1.6);
+  fx.lineTo(-len * 0.42 - wakeLen * 0.55, 0);
+  fx.lineTo(-len * 0.42 - wakeLen, beam * 1.6);
+  fx.closePath();
+  const wakeGrad = fx.createLinearGradient(-len * 0.42, 0, -len * 0.42 - wakeLen, 0);
+  wakeGrad.addColorStop(0, 'rgba(255, 255, 255, 0.75)');
+  wakeGrad.addColorStop(0.35, 'rgba(190, 240, 255, 0.45)');
+  wakeGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  fx.fillStyle = wakeGrad;
+  fx.fill();
+
+  // Sombra del casco sobre el agua
+  fx.fillStyle = 'rgba(6, 26, 35, 0.38)';
+  fx.beginPath();
+  fx.ellipse(1 * s, 1.8 * s, len * 0.48, beam * 0.45, 0, 0, Math.PI * 2);
+  fx.fill();
+
+  // Casco náutico (proa puntiaguda a +x, popa recta a -x)
+  fx.beginPath();
+  fx.moveTo(len * 0.55, 0);
+  fx.bezierCurveTo(len * 0.28, -beam * 0.5, -len * 0.32, -beam * 0.5, -len * 0.46, -beam * 0.44);
+  fx.lineTo(-len * 0.46, beam * 0.44);
+  fx.bezierCurveTo(-len * 0.32, beam * 0.5, len * 0.28, beam * 0.5, len * 0.55, 0);
+  fx.closePath();
+  fx.fillStyle = '#ffffff';
+  fx.fill();
+  fx.lineWidth = 1.1 * s;
+  fx.strokeStyle = '#092531';
+  fx.stroke();
+
+  // Cubierta interior de la lancha
+  fx.beginPath();
+  fx.moveTo(len * 0.25, 0);
+  fx.bezierCurveTo(len * 0.1, -beam * 0.32, -len * 0.25, -beam * 0.32, -len * 0.36, -beam * 0.28);
+  fx.lineTo(-len * 0.36, beam * 0.28);
+  fx.bezierCurveTo(-len * 0.25, beam * 0.28, len * 0.1, beam * 0.32, len * 0.25, 0);
+  fx.closePath();
+  fx.fillStyle = '#0f3846';
+  fx.fill();
+
+  // Techo / carpa parasol (bimini)
+  const canopy = (id % 2 === 0) ? '#e59d18' : '#14b8a6';
+  fx.fillStyle = canopy;
+  fx.fillRect(-len * 0.22, -beam * 0.3, len * 0.32, beam * 0.6);
+  fx.lineWidth = 0.8 * s;
+  fx.strokeStyle = '#081f28';
+  fx.strokeRect(-len * 0.22, -beam * 0.3, len * 0.32, beam * 0.6);
+
+  // Motor fuera de borda en la popa
+  fx.fillStyle = '#1c242b';
+  fx.fillRect(-len * 0.52, -beam * 0.16, len * 0.1, beam * 0.32);
+
+  // Luz de proa
+  fx.fillStyle = '#ffffff';
+  fx.beginPath();
+  fx.arc(len * 0.42, 0, 1.2 * s, 0, Math.PI * 2);
+  fx.fill();
+
+  fx.restore();
+}
+
+function drawCargoShip(fx, pos, angle, scale, time) {
+  const s = Math.max(0.65, Math.min(2.0, scale));
+  const len = 64 * s;
+  const beam = 14 * s;
+
+  fx.save();
+  fx.translate(pos.x, pos.y);
+  fx.rotate(angle);
+
+  // Estela ancha del buque en el canal
+  const wakeLen = 75 * s;
+  fx.beginPath();
+  fx.moveTo(-len * 0.48, 0);
+  fx.lineTo(-len * 0.48 - wakeLen, -beam * 1.9);
+  fx.lineTo(-len * 0.48 - wakeLen * 0.7, 0);
+  fx.lineTo(-len * 0.48 - wakeLen, beam * 1.9);
+  fx.closePath();
+  const wGrad = fx.createLinearGradient(-len * 0.48, 0, -len * 0.48 - wakeLen, 0);
+  wGrad.addColorStop(0, 'rgba(255, 255, 255, 0.75)');
+  wGrad.addColorStop(0.3, 'rgba(180, 230, 245, 0.4)');
+  wGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  fx.fillStyle = wGrad;
+  fx.fill();
+
+  // Olas laterales de proa
+  fx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+  fx.lineWidth = 1.4 * s;
+  fx.beginPath();
+  fx.moveTo(len * 0.38, -beam * 0.4); fx.lineTo(len * 0.12, -beam * 1.25);
+  fx.moveTo(len * 0.38, beam * 0.4); fx.lineTo(len * 0.12, beam * 1.25);
+  fx.stroke();
+
+  // Casco mercante
+  fx.beginPath();
+  fx.moveTo(len * 0.5, 0);
+  fx.bezierCurveTo(len * 0.38, -beam * 0.5, -len * 0.35, -beam * 0.5, -len * 0.48, -beam * 0.44);
+  fx.lineTo(-len * 0.48, beam * 0.44);
+  fx.bezierCurveTo(-len * 0.35, beam * 0.5, len * 0.38, beam * 0.5, len * 0.5, 0);
+  fx.closePath();
+  fx.fillStyle = '#18242b';
+  fx.fill();
+  fx.lineWidth = 1.4 * s;
+  fx.strokeStyle = '#08141a';
+  fx.stroke();
+
+  // Cubierta de contenedores
+  fx.fillStyle = '#8b261e';
+  fx.fillRect(-len * 0.38, -beam * 0.4, len * 0.62, beam * 0.8);
+
+  // Bloques de contenedores de carga
+  const colors = ['#2980b9', '#d35400', '#27ae60', '#f39c12', '#7f8c8d', '#8e44ad'];
+  const rows = 4, cols = 5;
+  const cW = (len * 0.55) / cols, cH = (beam * 0.7) / rows;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const colIdx = (r * 3 + c * 5) % colors.length;
+      fx.fillStyle = colors[colIdx];
+      fx.fillRect(-len * 0.36 + c * cW + 1, -beam * 0.34 + r * cH + 0.8, cW - 2, cH - 1.6);
+    }
+  }
+
+  // Superestructura del puente de mando en popa
+  fx.fillStyle = '#f8fafc';
+  fx.fillRect(-len * 0.45, -beam * 0.34, len * 0.12, beam * 0.68);
+  fx.fillStyle = '#0f172a';
+  fx.fillRect(-len * 0.37, -beam * 0.28, len * 0.02, beam * 0.56);
+  // Chimenea
+  fx.fillStyle = '#e74c3c';
+  fx.fillRect(-len * 0.43, -beam * 0.1, len * 0.05, beam * 0.2);
+
+  fx.restore();
+}
+
+function drawMoto(fx, pos, angle, scale, time, id = 0) {
+  const s = Math.max(0.65, Math.min(1.8, scale));
+  const len = 9 * s;
+  const w = 3.2 * s;
+
+  fx.save();
+  fx.translate(pos.x, pos.y);
+  fx.rotate(angle);
+
+  // Haz de luz del faro delantero sobre el camino
+  fx.beginPath();
+  fx.moveTo(len * 0.45, 0);
+  fx.lineTo(len * 0.45 + 16 * s, -6 * s);
+  fx.lineTo(len * 0.45 + 16 * s, 6 * s);
+  fx.closePath();
+  const beamGrad = fx.createLinearGradient(len * 0.45, 0, len * 0.45 + 16 * s, 0);
+  beamGrad.addColorStop(0, 'rgba(255, 238, 170, 0.45)');
+  beamGrad.addColorStop(1, 'rgba(255, 238, 170, 0)');
+  fx.fillStyle = beamGrad;
+  fx.fill();
+
+  // Sombra de la moto
+  fx.fillStyle = 'rgba(8, 24, 30, 0.35)';
+  fx.beginPath();
+  fx.ellipse(0, 1.2 * s, len * 0.5, w * 0.45, 0, 0, Math.PI * 2);
+  fx.fill();
+
+  // Ruedas (delantera y trasera)
+  fx.fillStyle = '#1a1a1a';
+  fx.fillRect(-len * 0.45, -w * 0.25, len * 0.22, w * 0.5);
+  fx.fillRect(len * 0.25, -w * 0.25, len * 0.22, w * 0.5);
+
+  // Chasis y cuerpo de la moto
+  const bodyColor = (id % 3 === 0) ? '#e59d18' : (id % 3 === 1) ? '#c86d51' : '#0f766e';
+  fx.fillStyle = bodyColor;
+  fx.beginPath();
+  fx.roundRect(-len * 0.35, -w * 0.45, len * 0.7, w * 0.9, 2 * s);
+  fx.fill();
+  fx.lineWidth = 0.8 * s;
+  fx.strokeStyle = '#081a20';
+  fx.stroke();
+
+  // Conductor (torso y casco)
+  fx.fillStyle = '#2c3e50';
+  fx.beginPath();
+  fx.ellipse(-len * 0.05, 0, len * 0.2, w * 0.45, 0, 0, Math.PI * 2);
+  fx.fill();
+  fx.fillStyle = '#f39c12';
+  fx.beginPath();
+  fx.arc(len * 0.08, 0, 2.2 * s, 0, Math.PI * 2);
+  fx.fill();
+  fx.lineWidth = 0.7 * s;
+  fx.strokeStyle = '#000000';
+  fx.stroke();
+
+  // Manubrio
+  fx.strokeStyle = '#333333';
+  fx.lineWidth = 1.2 * s;
+  fx.beginPath();
+  fx.moveTo(len * 0.22, -w * 0.6); fx.lineTo(len * 0.22, w * 0.6);
+  fx.stroke();
+
+  fx.restore();
+}
+
+function drawWalker(fx, pos, angle, scale, time, id = 0) {
+  const s = Math.max(0.65, Math.min(1.8, scale));
+  const r = 2.4 * s;
+
+  fx.save();
+  fx.translate(pos.x, pos.y);
+
+  // Sombra del peatón
+  fx.fillStyle = 'rgba(8, 24, 30, 0.32)';
+  fx.beginPath();
+  fx.ellipse(0, 1.2 * s, r * 1.3, r * 0.8, 0, 0, Math.PI * 2);
+  fx.fill();
+
+  // Pies con cadencia de paso
+  const stride = Math.sin(time * 9 + id * 2) * 2.2 * s;
+  fx.save();
+  fx.rotate(angle);
+  fx.fillStyle = '#4a5568';
+  fx.fillRect(stride - 1.2 * s, -r * 0.75, 2.4 * s, 1.2 * s);
+  fx.fillRect(-stride - 1.2 * s, r * 0.45, 2.4 * s, 1.2 * s);
+
+  // Ropa / torso
+  const shirtColor = (id % 4 === 0) ? '#0f766e' : (id % 4 === 1) ? '#c86d51' : (id % 4 === 2) ? '#3d9fd6' : '#d4a017';
+  fx.fillStyle = shirtColor;
+  fx.beginPath();
+  fx.ellipse(0, 0, r * 1.35, r * 0.85, 0, 0, Math.PI * 2);
+  fx.fill();
+  fx.lineWidth = 0.6 * s;
+  fx.strokeStyle = '#081a20';
+  fx.stroke();
+
+  // Cabeza
+  fx.fillStyle = '#e8c4a0';
+  fx.beginPath();
+  fx.arc(0, 0, r * 0.85, 0, Math.PI * 2);
+  fx.fill();
+
+  fx.restore();
+  fx.restore();
+}
+
+function drawIslandTraffic(time) {
+  const s = model.scale();
+  for (let rIdx = 0; rIdx < islandRoutes.length; rIdx++) {
+    const route = islandRoutes[rIdx];
+    const path = route.path;
+    if (!path || !path.pts || path.pts.length < 2) continue;
+
+    // Motos en escala real
+    for (let m = 0; m < route.motos; m++) {
+      let tRaw = (time * route.speedMoto + m * 0.48 + rIdx * 0.31) % 2;
+      const reverse = tRaw > 1;
+      const t = reverse ? 2 - tRaw : tRaw;
+      const v = getProjectedVehicle(path, t, 1.2, reverse);
+      if (v) drawMoto(fx, v, v.angle, s, time, rIdx * 10 + m);
+    }
+
+    // Personas a pie en escala real
+    for (let w = 0; w < route.walkers; w++) {
+      let tRaw = (time * route.speedWalk + w * 0.34 + rIdx * 0.27) % 2;
+      const reverse = tRaw > 1;
+      const t = reverse ? 2 - tRaw : tRaw;
+      const v = getProjectedVehicle(path, t, 1.0, reverse);
+      if (v) drawWalker(fx, v, v.angle, s, time, rIdx * 10 + w);
+    }
   }
 }
+
 function drawMar(time) {
   const s = model.scale();
-  line(canal, 3, '#ffffff', 6 * s, .6);
-  particles(canal, 3, '#ffffff', 5, .45, time, 8 * s);
-  for (const r of lanchas) { line(r.path, 4, '#f2b134', 4.5 * s, .9); particles(r.path, 4, '#f2b134', 3, .9, time, 7 * s); }
+  // Canal de navegación marítima
+  fx.setLineDash([10, 8]);
+  line(canal, 2, 'rgba(255,255,255,0.7)', 3.5 * s, 0.7);
+  // Rutas náuticas de lanchas
+  for (const r of lanchas) {
+    fx.setLineDash([6, 5]);
+    line(r.path, 3, '#f2b134', 3 * s, 0.85);
+  }
+  fx.setLineDash([]);
+
+  // Buque de carga en el canal de Bocachica
+  const tCargo = (time * 0.032) % 1;
+  const cargoPos = getProjectedVehicle(canal, tCargo, 2, false);
+  if (cargoPos) drawCargoShip(fx, cargoPos, cargoPos.angle, s, time);
+
+  // Lanchas rápidas de pasajeros con estela de espuma
+  for (let idx = 0; idx < lanchas.length; idx++) {
+    const r = lanchas[idx];
+    for (let b = 0; b < 2; b++) {
+      let tRaw = (time * 0.12 + b * 0.5 + idx * 0.25) % 2;
+      const reverse = tRaw > 1;
+      const t = reverse ? 2 - tRaw : tRaw;
+      const boatPos = getProjectedVehicle(r.path, t, 1.5, reverse);
+      if (boatPos) drawLancha(fx, boatPos, boatPos.angle, s, time, idx * 2 + b);
+    }
+  }
 }
+
+function drawMarSubtle(time) {
+  const s = model.scale();
+  for (let idx = 0; idx < lanchas.length; idx++) {
+    const r = lanchas[idx];
+    let tRaw = (time * 0.09 + idx * 0.32) % 2;
+    const reverse = tRaw > 1;
+    const t = reverse ? 2 - tRaw : tRaw;
+    const boatPos = getProjectedVehicle(r.path, t, 1.5, reverse);
+    if (boatPos) drawLancha(fx, boatPos, boatPos.angle, s * 0.85, time, idx);
+  }
+}
+
 function drawHistoria(time) {
   const r = lanchas.find(x => x.to === 'Bocachica'), s = model.scale();
-  line(r.path, 4, '#f2b134', 4.5 * s, .9); particles(r.path, 4, '#f2b134', 4, .9, time, 7 * s);
+  if (r) {
+    fx.setLineDash([6, 5]);
+    line(r.path, 3, '#f2b134', 3 * s, 0.85);
+    fx.setLineDash([]);
+    let tRaw = (time * 0.12) % 2;
+    const reverse = tRaw > 1;
+    const t = reverse ? 2 - tRaw : tRaw;
+    const boatPos = getProjectedVehicle(r.path, t, 1.5, reverse);
+    if (boatPos) drawLancha(fx, boatPos, boatPos.angle, s, time, 0);
+  }
 }
 function pulseRings(list, color, time) {
   const s = model.scale();
@@ -335,10 +704,12 @@ function frame(now) {
   const {w, h: hh} = model.size(); fx.clearRect(0, 0, w, hh);
   const time = now / 1000;
   if (model.isReady()) {
+    drawIslandTraffic(time);
     if (state.ch === 'mar') drawMar(time);
+    else if (state.ch === 'isla') drawMarSubtle(time);
     else if (state.ch === 'vida') drawVida(time);
     else if (state.ch === 'agua') { pulseRings(PT.agua, '#1d93c4', time); pulseRings(PT.manglar, '#3f7d23', time); }
-    else if (state.ch === 'historia') { pulseRings(PT.patrimonio, '#7a4b2a', time); }
+    else if (state.ch === 'historia') { drawHistoria(time); pulseRings(PT.patrimonio, '#7a4b2a', time); }
   }
   requestAnimationFrame(frame);
 }
@@ -407,17 +778,18 @@ const legend = items => h('ul.legend', {}, items.map(([kind, color, title, sub])
 const datum = (value, label, opts = {}) => h('div', {}, h('b', {'data-count': opts.count ?? '', 'data-dec': opts.dec ?? 0, text: value}), h('span', {text: label}));
 const STORIES = {
   isla: () => [
-    h('h2', {text: 'Territorio'}),
-    h('p.lead', {text: 'Isla de Cartagena con cuatro corregimientos: Bocachica, Caño del Oro, Punta Arena y Tierra Bomba.'}),
-    h('div.facts', {}, datum('19,8 km²', 'de superficie', {count: 19.8, dec: 1}), datum('1,5 km', 'hasta Cartagena', {count: 1.5, dec: 1}), datum('9.000', 'habitantes, aproximadamente', {count: 9000}), datum('2.600', 'construcciones registradas', {count: 2600})),
+    h('h2', {text: 'Territorio y movilidad insular'}),
+    h('p.lead', {text: 'Isla de Cartagena con cuatro corregimientos: Bocachica, Caño del Oro, Punta Arena y Tierra Bomba. Caminos cartografiados recorridos a pie y en moto conectan los cuatro poblados.'}),
+    h('div.facts', {}, datum('19,8 km²', 'de superficie', {count: 19.8, dec: 1}), datum('1,5 km', 'hasta Cartagena', {count: 1.5, dec: 1}), datum('9.000', 'habitantes, aproximadamente', {count: 9000}), datum('2.600', 'construcciones registradas', {count: 2600}), datum('306', 'vías cartografiadas', {count: 306})),
+    legend([['sw', '#f4ede2', 'Red de caminos insulares'], ['dot', '#e59d18', 'Motos en escala real'], ['dot', '#0f766e', 'Caminantes a pie'], ['dot', '#b8325a', 'Equipamientos comunitarios']]),
     h('div.places', {}, TOWNS.map(t => h('button', {onclick: () => fly({center: [...t.coord, 0], zoom: 15.6, pitch: 52}), text: t.name})), h('button', {onclick: () => fly(camFor('isla')), text: 'Toda la isla'})),
-    h('p.source', {text: 'Fuentes: superficie y distancia, Wikipedia; población estimada, El Universal (2022); construcciones, archivo de la tesis.'})
+    h('p.source', {text: 'Fuentes: superficie y distancia, Wikipedia; población estimada, El Universal (2022); construcciones y vías: OpenStreetMap y archivo de la tesis.'})
   ],
   mar: () => [
     h('h2', {text: 'Movilidad marítima'}),
-    h('p.lead', {text: 'No hay puente: personas, comida y materiales llegan por mar. Por el canal de Bocachica entran los buques a la bahía.'}),
-    legend([['sw', '#f2b134', 'Lanchas desde Cartagena'], ['sw', '#ffffff', 'Buques por el canal de Bocachica'], ['dot', '#0f766e', `${count.muelles} muelles`]]),
-    h('p.source', {text: 'Recorridos aproximados. Muelles: OpenStreetMap (2026).'})
+    h('p.lead', {text: 'No hay puente: personas, alimentos y materiales llegan por mar en lanchas rápidas. Por el canal de Bocachica navegan buques mercantes hacia la bahía.'}),
+    legend([['sw', '#f2b134', 'Lanchas rápidas con estela de agua'], ['sw', '#ffffff', 'Buques de carga en canal Bocachica'], ['dot', '#0f766e', `${count.muelles} muelles cartografiados`]]),
+    h('p.source', {text: 'Recorridos marítimos y canal de navegación georreferenciados. Muelles: OpenStreetMap.'})
   ],
   historia: () => [
     h('h2', {text: 'Patrimonio'}),
@@ -473,16 +845,16 @@ function renderStory() {
 }
 function renderNav() {
   const btn = c => h('button', {'aria-current': String(c === state.ch), onclick: () => go(c), text: CH_NAMES[c]});
-  $('#chapters').replaceChildren(btn('isla'), h('a', {href: RUTAS_URL, text: 'Movilidad marítima'}), btn('historia'), h('a', {href: SPECIES_URL, text: 'Especies'}), btn('cuenta'));
+  $('#chapters').replaceChildren(btn('isla'), btn('mar'), btn('historia'), h('a', {href: SPECIES_URL, target: '_blank', rel: 'noopener', text: 'Especies ↗'}), btn('cuenta'));
 }
 function go(ch, scroll = true) {
-  if (ch === 'vida') { location.href = SPECIES_URL; return; }
-  if (ch === 'mar') { location.href = RUTAS_URL; return; }
+  if (ch === 'vida') { window.open(SPECIES_URL, '_blank', 'noopener'); return; }
   if (!CHAPTERS.includes(ch)) ch = 'isla';
   state.ch = ch; document.body.dataset.ch = ch;
   clearSel();
-  for (const id of Object.keys(PT)) model.setPointsVisible(id, PT_BY_CH[ch].includes(id));
-  model.setBuildings(ch !== 'vida'); model.setRoads(ch === 'isla' || ch === 'historia' || ch === 'cuenta');
+  for (const id of Object.keys(PT)) model.setPointsVisible(id, PT_BY_CH[ch]?.includes(id) ?? false);
+  model.setBuildings(ch !== 'vida');
+  model.setRoads(true);
   syncTags(); renderNav(); renderStory();
   fly(camFor(ch));
   history.replaceState(null, '', ch === 'isla' ? location.pathname : '#' + ch);
