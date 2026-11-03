@@ -1,29 +1,44 @@
-# Aula Ambiental · Tierra Bomba
+# Tierra Bomba · Aula Ambiental
 
-MVP de presentación de la propuesta para ACOPI Bolívar.
+Aplicación tridimensional basada en el programa marco del arquitecto Alejandro Serrano Sierra para presentar la propuesta a ACOPI Bolívar.
 
 Arquitecto líder: Alejandro Serrano Sierra.
-Desarrollo de la propuesta y MVP: Alejandra Gómez y Ana Casas.
+Desarrollo de la propuesta y aplicación: Alejandra Gómez y Ana Casas.
 
-La aplicación incluye vista satelital de toda Tierra Bomba, demo de cartera de pilotos con verificaciones y aportes locales, modo presentación, seis líneas de investigación y documento fuente. Bocachica es el primer núcleo de trabajo dentro del ámbito insular.
+## Experiencia
 
-## Ejecución
+Toda la isla se representa mediante una malla tridimensional recortada con la máscara costera del archivo de tesis y deformada con elevaciones reales Terrain Tiles (Mapzen/AWS). Se incorpora la geometría Revit disponible, cuya cobertura corresponde al sector modelado, sin extender artificialmente edificios al resto de la isla. La base inferior es un soporte gráfico de exposición, no una representación de profundidad geológica.
 
-Sitio estático: abrir index.html o ejecutar python3 -m http.server 8000. No requiere instalación de dependencias.
+La cámara permite orbitar, acercar, inclinar, recorrer sectores y regresar al encuadre completo. Satélite/Maqueta cambia el material de la misma geometría. La red funcional reproduce la jerarquía del PDF mediante planos en un espacio tridimensional; sus relaciones son conceptuales y no geográficas.
 
-## Publicación
+## Contenido
 
-GitHub Pages desde la rama main y carpeta raíz. Las rutas son relativas al repositorio bocachica.
+Cinco recorridos: isla, pilotos, arquitectura funcional del Aula, investigación y colaboración. Los paneles siguen la guía: propósito y problema, concepto, pregunta, objetivos, metodología, archivo/modelo digital, actores, productos e indicadores, financiación, ética, ruta y fases. Incluye seis líneas de investigación y fichas de pilotos candidatos.
+
+Los registros de trabajo y aportes permanecen en este navegador. No se envían a ACOPI ni constituyen compromisos. Los pilotos exigen validación, revisión técnica, recursos y responsables de cuidado.
+
+## Identidad
+
+Branding de la tesis: Space Grotesk, JetBrains Mono, deepsea #113542, caribbean #0f766e y terracotta #c86d51. Logos oficiales de ACOPI Nacional y Pontificia Universidad Javeriana identifican al destinatario y al contexto académico; no acreditan patrocinio.
+
+## Ejecutar y publicar
+
+Sitio estático con módulos: python3 -m http.server 8000. Abrir http://localhost:8000. GitHub Pages: main, carpeta raíz. No requiere compilación. Archivos principales: index.html, experience.css, experience.js, territory-model.js, architecture-network.js y assets/programa-marco-v01.pdf.
+
+Se requiere conexión para motores, fuentes, logos, imágenes, modelo y elevaciones. La aplicación no utiliza claves privadas. Three.js 0.160.1 y GLTFLoader. El visor usa WebGL cuando está disponible; si el navegador lo tiene deshabilitado, el mismo terreno y las edificaciones se proyectan y rasterizan por triángulos en Canvas 2D. Esa alternativa sigue usando geometría tridimensional, con menor detalle y rendimiento. La red usa CSS3DRenderer y cámara de Three.js.
+
+## Fuentes
+
+- Programa marco Aula Ambiental v0.1, 26 de octubre de 2026, adjunto en PDF.
+- Cartografía, máscara costera y modelo: repositorio de tesis de la usuaria, https://github.com/alejagoguti-cpu/tesis. Textura sat_base, isla_mascara, mosaicos.json, tierrabomba_revit.glb y georef.json.
+- Imágenes: Esri World Imagery, Maxar, Earthstar Geographics y comunidad GIS, según los créditos de la fuente.
+- Relieve: Terrain Tiles, Mapzen/AWS Open Data. https://registry.opendata.aws/terrain-tiles/. Decodificación Terrarium: R*256 + G + B/256 - 32768 metros. No sustituye levantamiento topográfico.
+- Sectores: OpenStreetMap nodos 703211058, 703210903, 703210904; GeoNames para Caño de Loro. Las referencias identifican poblados, no emplazamientos de pilotos.
 
 ## Verificación
 
-node --check app.js
-node --check mvp.js
-node --check territory.js
-node verify.cjs
+node --check experience.js
+node --check territory-model.js
+node --check architecture-network.js
 
-## Datos
-
-Los datos de demostración se guardan exclusivamente en el navegador. No se envían a organizaciones. Las casillas y aportes de la demo no constituyen validaciones ni compromisos reales. Esri World Imagery y OpenStreetMap sirven la cartografía externa con sus créditos. Logos oficiales: ACOPI Nacional como destinatario institucional, con interlocución ACOPI Bolívar; Pontificia Universidad Javeriana como contexto académico. No se afirma patrocinio.
-
-Contenido basado en el programa marco de Alejandro Serrano Sierra, 26 de octubre de 2026. El cronograma de 24 meses es una propuesta y el PDF conserva apartados con X meses.
+Revisar geometría insular, carga del modelo real, cambios de material y relieve, navegación, cinco recorridos, guía, fases, fichas, equipo, logos y PDF. El entorno de revisión tiene WebGL deshabilitado: se verifican la rasterización de geometría por software y la red CSS3D. La rama WebGL requiere revisión en un dispositivo con aceleración gráfica.
