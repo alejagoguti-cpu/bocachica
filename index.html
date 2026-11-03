@@ -1,111 +1,13 @@
-<!doctype html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#113542">
-<meta name="description" content="Mapa vivo de Tierra Bomba y Bocachica: lugares, agua, mar, escuelas, árboles y seres vivos, con el origen de cada dato y lo que falta por contar.">
-<title>Mapa vivo de Tierra Bomba | Bocachica</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="cartografia.css">
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script>
-<script type="module" src="cartografia.js"></script>
-</head>
-<body data-view="mapa">
-<header class="top">
-  <div class="title">
-    <h1>Mapa vivo de Tierra Bomba</h1>
-    <p>Lo que sabemos de Bocachica y la isla, de dónde viene cada dato y lo que falta por contar.</p>
-  </div>
-  <nav class="views" aria-label="Secciones">
-    <button data-go="mapa" aria-pressed="true">Mapa</button>
-    <button data-go="vivos" aria-pressed="false">Seres vivos</button>
-    <button data-go="metodo" aria-pressed="false">Cómo se hace</button>
-    <button data-go="aportar" aria-pressed="false">Contar algo</button>
-  </nav>
-</header>
-
-<main class="stage">
-  <section class="map-block" aria-label="Mapa de la isla">
-    <div id="map" role="application" aria-label="Mapa tridimensional de Tierra Bomba. Arrastra para mover, pellizca o usa la rueda para acercar."></div>
-    <p class="map-status" id="map-status" role="status"></p>
-    <div class="map-tools" aria-label="Controles del mapa">
-      <button id="zoom-in" aria-label="Acercar">+</button>
-      <button id="zoom-out" aria-label="Alejar">−</button>
-      <button id="view-tilt">Ver desde arriba</button>
-    </div>
-    <p class="map-hint" id="map-hint">Toca un punto para ver qué es y de dónde viene el dato.</p>
-  </section>
-
-  <section class="net-block" aria-label="Red de relaciones entre seres vivos">
-    <div id="net"></div>
-  </section>
-
-  <article class="method" id="method" aria-label="Cómo se hace este mapa"></article>
-
-  <aside class="card" id="card" aria-live="polite"></aside>
-</main>
-
-<aside class="side">
-  <section class="side-map">
-    <h2>Ir a</h2>
-    <div class="places" id="places"></div>
-    <h2>Qué mostrar</h2>
-    <div class="layers" id="layers"></div>
-    <h2>Base del mapa</h2>
-    <div class="base" id="base"></div>
-  </section>
-
-  <section class="side-vivos">
-    <h2>Buscar una especie</h2>
-    <input id="q" type="search" placeholder="Nombre común o científico" autocomplete="off">
-    <div class="groups" id="groups"></div>
-    <p class="list-note" id="list-note"></p>
-    <ol class="species" id="species"></ol>
-  </section>
-
-  <section class="side-aportar">
-    <h2>Contar algo</h2>
-    <form id="aporte" novalidate>
-      <fieldset>
-        <legend>Qué quieres contar</legend>
-        <label class="opt"><input type="radio" name="clase" value="Recuerdo o historia" checked> Un recuerdo o una historia de un lugar</label>
-        <label class="opt"><input type="radio" name="clase" value="Dato que falta"> Algo que no está en el mapa</label>
-        <label class="opt"><input type="radio" name="clase" value="Corrección"> Algo que está mal en el mapa</label>
-      </fieldset>
-      <label class="field">Tema
-        <select name="tema" id="tema"></select>
-      </label>
-      <div class="field">
-        <span>Lugar</span>
-        <p class="pin-state" id="pin-state">Toca el mapa para marcar el lugar.</p>
-        <input name="lugar" placeholder="Cómo le dicen a ese lugar" autocomplete="off">
-      </div>
-      <label class="field">Lo que quieres contar
-        <textarea name="texto" rows="5" required></textarea>
-      </label>
-      <label class="field">Tu nombre o el de tu grupo (puedes dejarlo vacío)
-        <input name="autor" autocomplete="name">
-      </label>
-      <fieldset>
-        <legend>Quién puede verlo</legend>
-        <label class="opt"><input type="radio" name="acceso" value="Todos, en el mapa" checked> Todos, en el mapa</label>
-        <label class="opt"><input type="radio" name="acceso" value="Solo el equipo de investigación"> Solo el equipo de investigación</label>
-      </fieldset>
-      <p class="form-note">No escribas nombres ni datos de niñas o niños. El equipo revisa cada aporte contigo antes de ponerlo en el mapa.</p>
-      <p class="form-error" id="form-error" role="alert"></p>
-      <div class="form-actions">
-        <button type="submit" class="primary">Enviar por WhatsApp</button>
-        <button type="button" id="copy">Copiar el texto</button>
-      </div>
-    </form>
-    <h2>Lo que has contado en este teléfono</h2>
-    <ol class="saved" id="saved"></ol>
-  </section>
-</aside>
-
-<noscript><p class="noscript">Este mapa necesita JavaScript. Puedes leer el <a href="assets/programa-marco-v01.pdf">programa del Aula Ambiental</a>.</p></noscript>
-</body>
-</html>
+<!doctype html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#113542"><meta name="description" content="Tierra Bomba como Aula Ambiental. Una experiencia territorial interactiva de memoria, investigación y colaboración."><title>Tierra Bomba | Aula Ambiental</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"><link rel="stylesheet" href="experience.css"><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script><script type="module" src="experience.js"></script></head><body>
+<div id="territory-scene" role="region" aria-label="Territorio tridimensional navegable de toda Tierra Bomba"></div><div id="network-scene" hidden role="region" aria-label="Red conceptual tridimensional del Aula Ambiental"></div><div class="scene-shade"></div>
+<header class="app-header"><button class="brand" data-action="home" aria-label="Volver a toda la isla"><span class="brand-mark">TB<span>↗</span></span><span>Tierra Bomba<small>AULA AMBIENTAL</small></span></button><div class="top-context"><span class="status-dot"></span><span>MEMORIAS TERRITORIALES / CARTAGENA</span></div><div class="header-actions"><button id="tour-button">Presentar propuesta <span>↗</span></button><button id="team-button" class="quiet">Equipo</button><button id="toggle-panel" class="mobile-only" aria-label="Abrir o cerrar panel">☰</button></div></header>
+<aside class="explorer-panel"><div class="panel-eyebrow" id="panel-eyebrow">01 / TERRITORIO VIVO</div><div id="panel-content" aria-live="polite"></div><div class="panel-footer"><span>PROPUESTA PARA</span><div class="institution-logos"><a href="https://acopi.org.co/" target="_blank" rel="noopener"><img src="https://acopi.org.co/web/image/website/1/logo/Acopi%20Nacional?unique=87d47b8" alt="ACOPI Nacional"></a><a href="https://www.javeriana.edu.co/" target="_blank" rel="noopener"><img src="https://www.javeriana.edu.co/recursosdb/20129/601896/escudo-footer.png" alt="Pontificia Universidad Javeriana"></a></div><p>Interlocución: ACOPI Bolívar<br>Contexto académico: Arquitectura y Diseño PUJ</p></div></aside>
+<div class="map-title"><span id="scene-kicker">ESCALA INSULAR</span><h1 id="scene-title">Tierra Bomba<span>Un territorio que aprende.</span></h1></div>
+<div class="camera-tools" aria-label="Controles de cámara"><button id="camera-fit" title="Ver toda la isla" aria-label="Ver toda la isla">⌖</button><button id="camera-zoom-in" aria-label="Acercar">+</button><button id="camera-zoom-out" aria-label="Alejar">−</button><button id="camera-rotate" aria-label="Rotar cámara a la derecha">↻</button><button id="camera-pitch" aria-label="Cambiar vista cenital o inclinada">3D</button><button id="camera-orbit" aria-label="Activar o detener órbita automática">▷</button></div>
+<div class="layer-toolbar"><button id="layer-satellite" aria-pressed="true">Satélite</button><button id="layer-map" aria-pressed="false">Maqueta</button><span></span><label><input id="terrain-toggle" type="checkbox" checked> Relieve</label><label><input id="places-toggle" type="checkbox" checked> Sectores</label><label><input id="buildings-toggle" type="checkbox" checked> Construcciones</label><label><input id="roads-toggle" type="checkbox" checked> Vías</label><label><input id="revit-toggle" type="checkbox"> Revit</label></div>
+<div class="scene-instructions" id="scene-instructions">ARRASTRA PARA EXPLORAR <span>·</span> BOTÓN DERECHO PARA ORBITAR <span>·</span> RUEDA PARA ACERCAR</div>
+<nav class="mode-dock" aria-label="Explorar el Aula Ambiental"><button class="active" data-mode="territory" aria-pressed="true"><span>01</span><strong>La isla</strong></button><button data-mode="pilots" aria-pressed="false"><span>02</span><strong>Pilotos</strong></button><button data-mode="network" aria-pressed="false"><span>03</span><strong>La red</strong></button><button data-mode="research" aria-pressed="false"><span>04</span><strong>Investigación</strong></button><button data-mode="collaborate" aria-pressed="false"><span>05</span><strong>Colaborar</strong></button></nav>
+<div class="building-legend" id="building-legend" hidden><span class="building-swatch"></span><strong id="building-count">Construcciones</strong><span>Huellas del archivo de tesis · Alturas referenciales</span></div><div class="scene-status" id="scene-status" role="status">Preparando el territorio…</div><button class="sources-button" id="sources-button">Fuentes y alcance ↗</button>
+<div class="tour-controls" hidden><span id="tour-counter">01 / 06</span><button id="tour-prev" aria-label="Paso anterior">←</button><span id="tour-title">Toda la isla</span><button id="tour-next" aria-label="Paso siguiente">→</button><button id="tour-exit">Finalizar ×</button></div>
+<dialog id="info-dialog"><button id="dialog-close" aria-label="Cerrar">×</button><div id="dialog-content"></div></dialog>
+<noscript>La experiencia necesita JavaScript. <a href="assets/programa-marco-v01.pdf">Consulta el programa de Aula Ambiental</a>.</noscript></body></html>
