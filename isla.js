@@ -67,8 +67,9 @@ const CAMERAS = {
   historia: {center: [-75.5800, 10.3215], zoom: 15.4, pitch: 54, bearing: -20},
   cuenta: {center: C, zoom: 13.2, pitch: 38, bearing: -12}
 };
-const CHAPTERS = ['isla', 'mar', 'vida', 'agua', 'historia', 'cuenta'];
-const CH_NAMES = {isla: 'La isla', mar: 'El mar', vida: 'La vida', agua: 'El agua', historia: 'Historia', cuenta: 'Cuéntanos'};
+const CHAPTERS = ['isla', 'mar', 'historia', 'cuenta'];
+const SPECIES_URL = 'https://anasoficasca-code.github.io/tierrabomba/';
+const CH_NAMES = {isla: 'Territorio', mar: 'Movilidad marítima', historia: 'Patrimonio', cuenta: 'Participación'};
 
 // ------------------------------------------------------------ estado
 const state = {ch: 'isla', filter: 'todas', sel: null, pin: null, pinTag: null, top: false};
@@ -112,7 +113,7 @@ function tag(text, coord, cls, chapters, onclick, prio, lift = 10) {
 }
 TOWNS.forEach(t => tag(t.name, t.coord, 'town', ['isla', 'mar', 'agua', 'cuenta', 'historia'], () => fly({center: [...t.coord, 0], zoom: 15.6, pitch: 52}), 10, 30));
 tag('Cartagena', CARTAGENA, 'city', ['mar'], null, 9);
-tag('Canal de Bocachica', [-75.5840, 10.3080], 'note', ['mar'], null, 7, 4);
+tag('Canal de Bocachica', [-75.5840, 10.3080], 'note', ['mar', 'historia'], null, 7, 4);
 byCapa('patrimonio').filter(l => !/^Atractivo/.test(l.nombre)).forEach(l => tag(l.nombre.replace(' de Bocachica', ''), [l.lon, l.lat], '', ['historia'], () => select({kind: 'lugar', id: l.id}), 6));
 byCapa('comunidad').filter(l => /Escuela|Institución|Gimnasio|Fundación/.test(l.tipo + l.nombre)).forEach(l => tag(l.nombre.replace('Institución Educativa ', 'I. E. '), [l.lon, l.lat], '', ['isla'], () => select({kind: 'lugar', id: l.id}), 5));
 byTipo('Reserva natural').forEach(l => tag('Manglar', [l.lon, l.lat], 'note', ['agua'], () => select({kind: 'lugar', id: l.id}), 6));
@@ -150,7 +151,8 @@ function fly(to, ms = 1600) {
     if (k >= 1) tween = null;
   };
 }
-model.on('dragstart', () => { tween = null; });
+let idleSince = performance.now();
+model.on('dragstart', () => { tween = null; idleSince = performance.now() + 1e9; setTimeout(() => { idleSince = performance.now(); }, 6000); });
 
 // ------------------------------------------------------------ flujos
 function smooth(pts, it = 3) {
@@ -326,6 +328,7 @@ function drawVida(time) {
 }
 function frame(now) {
   if (tween) tween(now);
+  else if (state.ch === 'isla' && !state.top && now - idleSince > 4000 && model.isReady()) { const v = model.getView(); model.easeTo({bearing: v.bearing + .06}); }
   fit();
   const {w, h: hh} = model.size(); fx.clearRect(0, 0, w, hh);
   const time = now / 1000;
@@ -399,79 +402,75 @@ const ask = (title, qs, tema) => h('div.ask', {}, h('h3', {text: title}), h('ul'
   h('button.btn.dark', {onclick: () => openCuenta({tema}), text: 'Contar lo que sé'}));
 const facts = list => h('div.facts', {}, list.map(([n, t]) => h('div', {}, h('b', {text: n}), h('span', {text: t}))));
 const legend = items => h('ul.legend', {}, items.map(([kind, color, title, sub]) => h('li', {}, h('i.' + kind, {style: `--c:${color}`}), h('span', {}, h('b', {text: title}), sub ? h('small', {text: sub}) : null))));
+const datum = (value, label, opts = {}) => h('div', {}, h('b', {'data-count': opts.count ?? '', 'data-dec': opts.dec ?? 0, text: value}), h('span', {text: label}));
 const STORIES = {
   isla: () => [
-    h('h2', {text: 'Una isla, cuatro pueblos'}),
-    h('p.lead', {text: 'Tierra Bomba queda frente a Cartagena. En ella viven Bocachica, Caño del Oro, Punta Arena y Tierra Bomba.'}),
-    h('p.body', {text: 'Esta es la isla en 3D, con sus casas y sus caminos. Gírala con el dedo, acércate a tu pueblo y recorre los capítulos para ver cómo se mueve: por dónde llega la gente, cómo se conectan los animales y las plantas, dónde está el agua y qué falta por saber.'}),
-    facts([[fmt(count.construcciones), 'construcciones en el archivo de la tesis'], [fmt(count.caminos), 'tramos de camino en el mapa abierto'], ['4', 'pueblos']]),
+    h('h2', {text: 'Territorio'}),
+    h('p.lead', {text: 'Isla de Cartagena con cuatro corregimientos: Bocachica, Caño del Oro, Punta Arena y Tierra Bomba.'}),
+    h('div.facts', {}, datum('19,8 km²', 'de superficie', {count: 19.8, dec: 1}), datum('1,5 km', 'hasta Cartagena', {count: 1.5, dec: 1}), datum('9.000', 'habitantes, aproximadamente', {count: 9000}), datum('2.600', 'construcciones registradas', {count: 2600})),
     h('div.places', {}, TOWNS.map(t => h('button', {onclick: () => fly({center: [...t.coord, 0], zoom: 15.6, pitch: 52}), text: t.name})), h('button', {onclick: () => fly(camFor('isla')), text: 'Toda la isla'})),
-    legend([['dot', '#b8325a', 'Escuelas y lugares de la comunidad', 'Toca uno para ver de dónde viene el dato']]),
-    h('p.source', {text: 'Las alturas de las casas son de referencia, no medidas. El relieve viene de Terrain Tiles y no reemplaza un levantamiento.'})
+    h('p.source', {text: 'Fuentes: superficie y distancia, Wikipedia; población estimada, El Universal (2022); construcciones, archivo de la tesis.'})
   ],
   mar: () => [
-    h('h2', {text: 'El mar es la calle'}),
-    h('p.lead', {text: 'A la isla no se llega por carretera. La gente, la comida, los materiales y los visitantes entran y salen por el mar.'}),
-    h('p.body', {text: 'Las lanchas salen de Cartagena hacia los muelles de cada pueblo. Frente a Bocachica pasa el canal por donde entran los barcos grandes a la bahía; los fuertes de San Fernando y San José cuidaron esa entrada durante siglos.'}),
-    legend([['sw', '#f2b134', 'Lanchas desde Cartagena', 'Recorridos aproximados hacia los cuatro pueblos'], ['sw', '#ffffff', 'Barcos por el canal de Bocachica', 'Recorrido aproximado hacia la bahía'], ['dot', '#0f766e', `${count.muelles} muelles y un varadero`, 'Del mapa abierto, sin revisar en campo']]),
-    ask('Lo que solo saben los de la isla', ['¿De dónde salen las lanchas y cuánto cuesta el pasaje?', '¿Dónde se pesca y dónde se arreglan las lanchas?', '¿Qué pasa en la isla cuando el mar está bravo?'], 'El mar')
-  ],
-  vida: () => [
-    h('h2', {text: 'La vida se conecta'}),
-    h('p.lead', {text: `En la isla se han fotografiado ${fmt(count.especies)} tipos de seres vivos. Sobre el modelo los ves en pisos, cada uno encima de donde se vio.`}),
-    h('p.body', {text: 'Arriba van las aves, luego los insectos, después reptiles y mamíferos, las plantas cerca del suelo y los peces alrededor, en el mar. Cada línea es una relación. Las luces que corren por las líneas muestran hacia dónde pasa el alimento.'}),
-    h('div.chips', {}, FILTERS.map(f => h('button', {style: `--c:${f.color}`, 'aria-pressed': String(state.filter === f.id), onclick: () => { state.filter = f.id; renderStory(); }}, f.id === 'todas' ? null : h('i'), f.name))),
-    facts([[fmt(count.conectadas), 'especies con relaciones conocidas'], [fmt(count.relaciones), 'relaciones entre ellas'], [fmt(count.registros), 'fotos tomadas en la isla']]),
-    h('p.body', {text: 'Toca una especie para ver con quién se relaciona y dónde la han visto.'}),
-    ask('Lo que solo saben los de la isla', ['¿Cómo les dicen en la isla a estos animales y plantas?', '¿Cuáles se ven menos que antes?', '¿Quién se come a quién, según lo que han visto?'], 'La vida'),
-    h('p.source', {text: 'Fotos y registros: iNaturalist. Relaciones: GloBI (Global Biotic Interactions), estudios de otros lugares; en la isla están por confirmar.'})
-  ],
-  agua: () => [
-    h('h2', {text: 'El agua'}),
-    h('p.lead', {text: `En el mapa abierto aparecen ${count.agua} lagunas, charcas, humedales y arroyos, y dos zonas de manglar protegidas.`}),
-    h('p.body', {text: 'Pero el mapa no dice lo más importante: de dónde sale el agua que usa cada casa, quién la carga, cuánto cuesta y dónde se guarda. Eso lo sabe la gente de la isla.'}),
-    legend([['ring', '#1d93c4', 'Lagunas, charcas, humedales y arroyos', 'Del mapa abierto, sin revisar en campo'], ['ring', '#3f7d23', 'Manglar', 'Zonas marcadas como reserva']]),
-    ask('Lo que solo saben los de la isla', ['¿De dónde sale el agua que usan las casas y la escuela?', '¿Quién la carga, cuánto tiempo toma y cuánto cuesta?', '¿Dónde se guarda el agua de lluvia y quién la cuida?'], 'El agua')
+    h('h2', {text: 'Movilidad marítima'}),
+    h('p.lead', {text: 'No hay puente: personas, comida y materiales llegan por mar. Por el canal de Bocachica entran los buques a la bahía.'}),
+    legend([['sw', '#f2b134', 'Lanchas desde Cartagena'], ['sw', '#ffffff', 'Buques por el canal de Bocachica'], ['dot', '#0f766e', `${count.muelles} muelles`]]),
+    h('p.source', {text: 'Recorridos aproximados. Muelles: OpenStreetMap (2026).'})
   ],
   historia: () => [
-    h('h2', {text: 'La historia y los visitantes'}),
-    h('p.lead', {text: 'Los fuertes de San Fernando y San José, las baterías del Ángel San Rafael y los faros guardaron la entrada a Cartagena.'}),
-    h('p.body', {text: 'Hoy son también lugar de visita. Los visitantes llegan en lancha a Bocachica y caminan a los fuertes y a las playas. ¿Cuánto de lo que dejan se queda en el pueblo?'}),
-    legend([['ring', '#7a4b2a', `${count.patrimonio} lugares de historia`, 'Fuertes, baterías y faros'], ['dot', '#8b4aa8', `${count.turismo} lugares de turismo y comercio`, 'Playas, hoteles, restaurantes y tiendas'], ['sw', '#f2b134', 'Lanchas de visitantes', 'Recorrido aproximado desde Cartagena']]),
-    ask('Lo que solo saben los de la isla', ['¿Qué historias se cuentan de los fuertes que no están en los libros?', '¿Por dónde caminan los visitantes y por dónde la gente del pueblo?', '¿Qué negocios del pueblo no aparecen en el mapa?'], 'Historia y visitantes')
+    h('h2', {text: 'Patrimonio'}),
+    h('p.lead', {text: 'Las fortificaciones del canal de Bocachica hacen parte del patrimonio mundial de Cartagena.'}),
+    h('div.facts', {}, datum('1984', 'Cartagena entra a la lista de Patrimonio Mundial de la UNESCO', {count: 1984}), datum('Siglo XVIII', 'se construye el Fuerte de San Fernando, dirigido por Antonio de Arévalo'), datum('46', 'bienes de interés cultural en el plan de las fortificaciones de la bahía', {count: 46})),
+    h('p.body', {text: 'En la isla: Fuerte de San Fernando, Batería del Ángel San Rafael, restos de las baterías de Santiago, San Felipe, Santa Bárbara y Chamba, el Tejar de los Jesuitas y el antiguo Leprocomio de Caño del Oro.'}),
+    h('p.source', {text: 'Fuentes: El Universal, plan especial de las fortificaciones (2019); Paradiso y Galassi, Revista M (2013).'})
   ],
   cuenta: () => [
-    h('h2', {text: 'Lo que falta lo cuentas tú'}),
-    h('p.lead', {text: 'Este mapa se completa con lo que sabe la gente de la isla. Toca el mapa para marcar el lugar y cuéntanos.'}),
+    h('h2', {text: 'Participación'}),
+    h('p.lead', {text: 'Marca un lugar en el mapa y envía lo que sabes de él.'}),
     h('form', {id: 'aporte', novalidate: true, onsubmit: send},
-      h('label.field', {}, 'Tema', h('select', {name: 'tema'}, ['El mar', 'La vida', 'El agua', 'Historia y visitantes', 'Basuras', 'Otra cosa'].map(t => h('option', {text: t})))),
-      h('div.field', {}, 'Lugar', h('p.pin-state', {id: 'pin-state', class: state.pin ? 'pin-state set' : 'pin-state', text: state.pin ? 'Lugar marcado en el mapa. Toca otra parte para moverlo.' : 'Toca el mapa para marcar el lugar.'}), h('input', {name: 'lugar', placeholder: 'Cómo le dicen a ese lugar', autocomplete: 'off'})),
-      h('label.field', {}, 'Lo que quieres contar', h('textarea', {name: 'texto', rows: 5})),
-      h('label.field', {}, 'Tu nombre (puedes dejarlo vacío)', h('input', {name: 'autor', autocomplete: 'name'})),
-      h('label.field', {}, 'Quién puede verlo', h('select', {name: 'acceso'}, h('option', {text: 'Todos, en el mapa'}), h('option', {text: 'Solo el equipo de investigación'}))),
-      h('p.form-note', {text: 'No escribas nombres ni datos de niñas o niños. El equipo revisa cada aporte contigo antes de ponerlo en el mapa.'}),
+      h('label.field', {}, 'Tema', h('select', {name: 'tema'}, ['Territorio', 'Movilidad marítima', 'Patrimonio', 'Especies', 'Otro'].map(t => h('option', {text: t})))),
+      h('div.field', {}, 'Lugar', h('p.pin-state', {id: 'pin-state', class: state.pin ? 'pin-state set' : 'pin-state', text: state.pin ? 'Lugar marcado.' : 'Toca el mapa para marcarlo.'}), h('input', {name: 'lugar', placeholder: 'Nombre del lugar', autocomplete: 'off'})),
+      h('label.field', {}, 'Mensaje', h('textarea', {name: 'texto', rows: 4})),
+      h('label.field', {}, 'Nombre (opcional)', h('input', {name: 'autor', autocomplete: 'name'})),
+      h('input', {type: 'hidden', name: 'acceso', value: 'Por revisar con el equipo'}),
       h('p.form-error', {id: 'form-error', role: 'alert'}),
-      h('div.actions', {}, h('button.btn.dark', {type: 'submit', text: 'Enviar por WhatsApp'}), h('button.btn', {type: 'button', id: 'copy', onclick: copy, text: 'Copiar el texto'}))),
-    h('h3.sec', {text: 'Más de este proyecto'}),
+      h('div.actions', {}, h('button.btn.dark', {type: 'submit', text: 'Enviar por WhatsApp'}), h('button.btn', {type: 'button', id: 'copy', onclick: copy, text: 'Copiar'}))),
     h('div.links', {},
-      h('a', {href: 'maqueta/'}, h('b', {text: 'La isla y Cartagena en 3D'}), h('span', {text: 'Maqueta sin foto'})),
-      h('a', {href: 'historia.html'}, h('b', {text: 'Historia y cartografía'}), h('span', {text: 'Atlas histórico'})),
-      h('a', {href: 'movilidad.html'}, h('b', {text: 'La isla en movimiento'}), h('span', {text: 'Recorridos y equipamientos'})),
-      h('a', {href: 'indicadores.html'}, h('b', {text: 'Indicadores'}), h('span', {text: 'Lecturas satelitales'})),
-      h('a', {href: 'https://anasoficasca-code.github.io/tierrabomba/'}, h('b', {text: 'Especies de la isla'}), h('span', {text: 'Sitio de especies'})),
-      h('a', {href: 'assets/programa-marco-v01.pdf', target: '_blank', rel: 'noopener'}, h('b', {text: 'Programa Aula Ambiental'}), h('span', {text: 'PDF'}))),
-    h('p.source', {text: 'Tierra Bomba, Aula Ambiental. Promotor académico: Arq. Alejandro Serrano Sierra, Programa de Arquitectura, Pontificia Universidad Javeriana. Desarrollo: Alejandra Gómez y Ana Casas. Fuentes: OpenStreetMap (ODbL), iNaturalist, GloBI, Esri World Imagery, Terrain Tiles y archivo de la tesis.'})
+      h('a', {href: 'maqueta/'}, h('b', {text: 'Isla y Cartagena en 3D'})),
+      h('a', {href: 'historia.html'}, h('b', {text: 'Historia y cartografía'})),
+      h('a', {href: 'movilidad.html'}, h('b', {text: 'Movilidad terrestre'})),
+      h('a', {href: 'indicadores.html'}, h('b', {text: 'Indicadores'})),
+      h('a', {href: 'assets/programa-marco-v01.pdf', target: '_blank', rel: 'noopener'}, h('b', {text: 'Programa Aula Ambiental (PDF)'}))),
+    h('p.source', {text: 'Aula Ambiental Tierra Bomba. Arq. Alejandro Serrano Sierra, Pontificia Universidad Javeriana. Desarrollo: Alejandra Gómez y Ana Casas.'})
   ]
 };
+function countUp() {
+  document.querySelectorAll('#story [data-count]').forEach(el => {
+    const to = parseFloat(el.dataset.count); if (!to) return;
+    const dec = +el.dataset.dec || 0, suffix = el.textContent.replace(/[\d.,\s]+/, ''), t0 = performance.now();
+    const step = now => {
+      const k = Math.min(1, (now - t0) / 1100), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = (to * e).toLocaleString('es-CO', {minimumFractionDigits: dec, maximumFractionDigits: dec, useGrouping: to >= 10000 || dec === 0 && to > 2100}) + (suffix ? ' ' + suffix.trim() : '');
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+}
 function renderStory() {
   const i = CHAPTERS.indexOf(state.ch), prev = CHAPTERS[i - 1], next = CHAPTERS[i + 1];
-  $('#story').replaceChildren(...[h('p.num', {text: `${String(i + 1).padStart(2, '0')} de 06`}), ...STORIES[state.ch](),
-    h('div.next', {}, prev ? h('button.prev', {onclick: () => go(prev), text: CH_NAMES[prev]}) : h('span'), next ? h('button', {onclick: () => go(next), text: `Sigue: ${CH_NAMES[next]}`}) : null)].flat(Infinity).filter(Boolean));
+  const story = $('#story');
+  story.classList.remove('in'); void story.offsetWidth;
+  story.replaceChildren(...[...STORIES[state.ch](),
+    h('div.next', {}, prev ? h('button.prev', {onclick: () => go(prev), text: CH_NAMES[prev]}) : h('span'), next ? h('button', {onclick: () => go(next), text: CH_NAMES[next]}) : null)].flat(Infinity).filter(Boolean));
+  story.classList.add('in'); countUp();
 }
 function renderNav() {
-  $('#chapters').replaceChildren(...CHAPTERS.map((c, i) => h('button', {'aria-current': String(c === state.ch), onclick: () => go(c)}, h('b', {text: String(i + 1).padStart(2, '0')}), h('span', {text: CH_NAMES[c]}))));
+  const items = CHAPTERS.map(c => h('button', {'aria-current': String(c === state.ch), onclick: () => go(c), text: CH_NAMES[c]}));
+  items.splice(3, 0, h('a', {href: SPECIES_URL, text: 'Especies'}));
+  $('#chapters').replaceChildren(...items);
 }
 function go(ch, scroll = true) {
+  if (ch === 'vida') { location.href = SPECIES_URL; return; }
   if (!CHAPTERS.includes(ch)) ch = 'isla';
   state.ch = ch; document.body.dataset.ch = ch;
   clearSel();
@@ -488,7 +487,7 @@ function setPin(ll) {
   state.pin = ll;
   if (state.pinTag) state.pinTag.remove();
   state.pinTag = model.addPlace(h('span.tag.pin', {text: 'Aquí'}), ll, 6);
-  const p = $('#pin-state'); if (p) { p.textContent = 'Lugar marcado en el mapa. Toca otra parte para moverlo.'; p.classList.add('set'); }
+  const p = $('#pin-state'); if (p) { p.textContent = 'Lugar marcado.'; p.classList.add('set'); }
 }
 function openCuenta({tema, lugar, texto, coord} = {}) {
   go('cuenta', false);
@@ -502,11 +501,11 @@ function openCuenta({tema, lugar, texto, coord} = {}) {
 function message() {
   const f = $('#aporte');
   const lugar = [f.lugar.value.trim(), state.pin ? `punto ${state.pin[1].toFixed(5)}, ${state.pin[0].toFixed(5)}` : ''].filter(Boolean).join('; ');
-  return ['Así se mueve Tierra Bomba: aporte', `Tema: ${f.tema.value}`, `Lugar: ${lugar || 'sin marcar'}`, `Lo que cuento: ${f.texto.value.trim()}`, `Quién lo cuenta: ${f.autor.value.trim() || 'sin nombre'}`, `Quién puede verlo: ${f.acceso.value}`, `Fecha: ${new Date().toLocaleDateString('es-CO')}`].join('\n');
+  return ['Tierra Bomba: aporte', `Tema: ${f.tema.value}`, `Lugar: ${lugar || 'sin marcar'}`, `Lo que cuento: ${f.texto.value.trim()}`, `Quién lo cuenta: ${f.autor.value.trim() || 'sin nombre'}`, `Quién puede verlo: ${f.acceso.value}`, `Fecha: ${new Date().toLocaleDateString('es-CO')}`].join('\n');
 }
 function valid() {
   const f = $('#aporte');
-  if (!f.texto.value.trim()) { $('#form-error').textContent = 'Escribe lo que quieres contar antes de enviarlo.'; f.texto.focus(); return false; }
+  if (!f.texto.value.trim()) { $('#form-error').textContent = 'Escribe el mensaje antes de enviarlo.'; f.texto.focus(); return false; }
   $('#form-error').textContent = ''; return true;
 }
 function send(e) { e.preventDefault(); if (valid()) open('https://wa.me/?text=' + encodeURIComponent(message()), '_blank', 'noopener'); }
@@ -539,6 +538,7 @@ function whenReady() {
 }
 if (model.isReady()) whenReady(); else model.on('load', whenReady);
 
+model.setLayoutProperty('model', 'visibility', 'visible'); // maqueta 3D, sin foto satelital
 const first = location.hash.slice(1) || 'isla';
 model.easeTo(camFor(first));
 go(first, false);
