@@ -3,7 +3,7 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 
 const $=s=>document.querySelector(s);
-const SOURCE='https://raw.githubusercontent.com/alejagoguti-cpu/tesis/main/public/';
+const SOURCE='https://raw.githubusercontent.com/alejagoguti-cpu/tesis/808cab5c59a1746063b0b27c6e239ea70e8b6f33/public/';
 const R=6378137,UNIT=.1;
 const mercator=(lon,lat)=>[R*lon*Math.PI/180,R*Math.log(Math.tan(Math.PI/4+lat*Math.PI/360))];
 const origin=mercator(-75.575,10.35);
