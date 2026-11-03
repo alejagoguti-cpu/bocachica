@@ -51,3 +51,9 @@ Se incorpora assets/construcciones_tierra_bomba.json.gz: 2.600 huellas únicas d
 Las alturas de contexto son las estimadas por el script de la fuente (4 y 7 metros), no alturas de levantamiento. No se derivan ni afirman alturas reales de las casas. La interfaz lo indica junto al control de capa y en la ficha de contexto. El modelo Revit suministrado se conserva como capa separada, desactivada inicialmente para evitar superposición de representaciones.
 
 El modo Presentar propuesta organiza nueve pasos: territorio, problema de conocimiento disperso, memorias, arquitectura del Aula, seis líneas, piloto escolar candidato, método y evaluación, articulación con ACOPI y decisión de siguiente paso. Cada paso cambia el encuadre, formula una idea y una pregunta, y enlaza con el fundamento del PDF. Los créditos aparecen en el inicio y en Equipo.
+
+
+## Agua y vías
+El mar reutiliza `textures/water_normals_fine.jpg` y los parámetros de `src/utils/caribeWater.js` de la tesis: Water de Three.js, cielo físico, color #1ea4c8, reflejos, distorsión 2.4 y animación. En dispositivos sin WebGL se usan las mismas normales y la textura fotográfica `assets/textura_agua2.jpg` de la tesis para un mar en perspectiva, anclado al mundo.
+
+`assets/vias_tierra_bomba.json` conserva 305 ways de OpenStreetMap en 306 tramos recortados por la máscara insular, consultados el 2026-11-03 mediante la API pública /map. © OpenStreetMap contributors, ODbL 1.0: https://www.openstreetmap.org/copyright. No es un inventario vial levantado; los grosores de representación no son anchos medidos. Control Vías activado inicialmente.
