@@ -1,4 +1,5 @@
 import {createTerritoryModel} from './isla-model.js';
+import {originalMaps} from './original-atlas-data.mjs';
 
 const $ = s => document.querySelector(s);
 const fmt = n => n.toLocaleString('es-CO');
@@ -67,7 +68,8 @@ const CAMERAS = {
   historia: {center: [-75.5800, 10.3215], zoom: 15.4, pitch: 54, bearing: -20},
   cuenta: {center: C, zoom: 13.2, pitch: 38, bearing: -12}
 };
-const CHAPTERS = ['isla', 'mar', 'historia', 'cuenta'];
+const CHAPTERS = ['isla', 'historia', 'cuenta'];
+const RUTAS_URL = 'maqueta/#rutas';
 const SPECIES_URL = 'https://anasoficasca-code.github.io/tierrabomba/';
 const CH_NAMES = {isla: 'Territorio', mar: 'Movilidad marítima', historia: 'Patrimonio', cuenta: 'Participación'};
 
@@ -97,11 +99,11 @@ const PT = {
   muelles: byTipo('Muelle').concat(byTipo('Varadero')).map(l => ({lon: l.lon, lat: l.lat, color: '#0f766e', r: 7, data: {kind: 'lugar', id: l.id}})),
   agua: byCapa('agua').filter(l => l.tipo !== 'Cantera').map(l => ({lon: l.lon, lat: l.lat, color: '#1d93c4', r: 7, data: {kind: 'lugar', id: l.id}})),
   manglar: byTipo('Reserva natural').map(l => ({lon: l.lon, lat: l.lat, color: '#3f7d23', r: 9, data: {kind: 'lugar', id: l.id}})),
-  patrimonio: byCapa('patrimonio').map(l => ({lon: l.lon, lat: l.lat, color: '#7a4b2a', r: 8, data: {kind: 'lugar', id: l.id}})),
+  patrimonio: byCapa('patrimonio').filter(l => !/^Atractivo/.test(l.nombre)).map(l => ({lon: l.lon, lat: l.lat, color: '#7a4b2a', r: 8, data: {kind: 'lugar', id: l.id}})),
   turismo: byCapa('turismo').map(l => ({lon: l.lon, lat: l.lat, color: '#8b4aa8', r: 6, data: {kind: 'lugar', id: l.id}})),
   comunidad: byCapa('comunidad').map(l => ({lon: l.lon, lat: l.lat, color: '#b8325a', r: 7, data: {kind: 'lugar', id: l.id}}))
 };
-const PT_BY_CH = {isla: ['comunidad'], mar: ['muelles'], vida: [], agua: ['agua', 'manglar'], historia: ['patrimonio', 'turismo', 'muelles'], cuenta: []};
+const PT_BY_CH = {isla: ['comunidad'], mar: ['muelles'], vida: [], agua: ['agua', 'manglar'], historia: ['patrimonio'], cuenta: []};
 for (const [id, pts] of Object.entries(PT)) model.setPoints(id, pts, {visible: false, lift: 3});
 
 // etiquetas
@@ -113,7 +115,7 @@ function tag(text, coord, cls, chapters, onclick, prio, lift = 10) {
 }
 TOWNS.forEach(t => tag(t.name, t.coord, 'town', ['isla', 'mar', 'agua', 'cuenta', 'historia'], () => fly({center: [...t.coord, 0], zoom: 15.6, pitch: 52}), 10, 30));
 tag('Cartagena', CARTAGENA, 'city', ['mar'], null, 9);
-tag('Canal de Bocachica', [-75.5840, 10.3080], 'note', ['mar', 'historia'], null, 7, 4);
+
 byCapa('patrimonio').filter(l => !/^Atractivo/.test(l.nombre)).forEach(l => tag(l.nombre.replace(' de Bocachica', ''), [l.lon, l.lat], '', ['historia'], () => select({kind: 'lugar', id: l.id}), 6));
 byCapa('comunidad').filter(l => /Escuela|Institución|Gimnasio|Fundación/.test(l.tipo + l.nombre)).forEach(l => tag(l.nombre.replace('Institución Educativa ', 'I. E. '), [l.lon, l.lat], '', ['isla'], () => select({kind: 'lugar', id: l.id}), 5));
 byTipo('Reserva natural').forEach(l => tag('Manglar', [l.lon, l.lat], 'note', ['agua'], () => select({kind: 'lugar', id: l.id}), 6));
@@ -336,7 +338,7 @@ function frame(now) {
     if (state.ch === 'mar') drawMar(time);
     else if (state.ch === 'vida') drawVida(time);
     else if (state.ch === 'agua') { pulseRings(PT.agua, '#1d93c4', time); pulseRings(PT.manglar, '#3f7d23', time); }
-    else if (state.ch === 'historia') { drawHistoria(time); pulseRings(PT.patrimonio, '#7a4b2a', time); }
+    else if (state.ch === 'historia') { pulseRings(PT.patrimonio, '#7a4b2a', time); }
   }
   requestAnimationFrame(frame);
 }
@@ -422,7 +424,12 @@ const STORIES = {
     h('p.lead', {text: 'Las fortificaciones del canal de Bocachica hacen parte del patrimonio mundial de Cartagena.'}),
     h('div.facts', {}, datum('1984', 'Cartagena entra a la lista de Patrimonio Mundial de la UNESCO', {count: 1984}), datum('Siglo XVIII', 'se construye el Fuerte de San Fernando, dirigido por Antonio de Arévalo'), datum('46', 'bienes de interés cultural en el plan de las fortificaciones de la bahía', {count: 46})),
     h('p.body', {text: 'En la isla: Fuerte de San Fernando, Batería del Ángel San Rafael, restos de las baterías de Santiago, San Felipe, Santa Bárbara y Chamba, el Tejar de los Jesuitas y el antiguo Leprocomio de Caño del Oro.'}),
-    h('p.source', {text: 'Fuentes: El Universal, plan especial de las fortificaciones (2019); Paradiso y Galassi, Revista M (2013).'})
+    h('p.source', {text: 'Fuentes: El Universal, plan especial de las fortificaciones (2019); Paradiso y Galassi, Revista M (2013). Puntos del mapa: OpenStreetMap.'}),
+    h('h3.sec', {text: 'Planos históricos'}),
+    h('div.plans', {}, originalMaps.map(m => h('a.plan', {href: 'historia.html', title: 'Abrir en Historia y cartografía'},
+      h('img', {src: m.image, alt: m.title, loading: 'lazy'}),
+      h('span', {}, h('b', {text: String(m.year)}), m.shortTitle.replace(/^\d+:\s*/, ''))))),
+    h('p.source', {text: 'Planos del atlas histórico de la tesis. Toca uno para verlo en grande.'})
   ],
   cuenta: () => [
     h('h2', {text: 'Participación'}),
@@ -465,12 +472,12 @@ function renderStory() {
   story.classList.add('in'); countUp();
 }
 function renderNav() {
-  const items = CHAPTERS.map(c => h('button', {'aria-current': String(c === state.ch), onclick: () => go(c), text: CH_NAMES[c]}));
-  items.splice(3, 0, h('a', {href: SPECIES_URL, text: 'Especies'}));
-  $('#chapters').replaceChildren(...items);
+  const btn = c => h('button', {'aria-current': String(c === state.ch), onclick: () => go(c), text: CH_NAMES[c]});
+  $('#chapters').replaceChildren(btn('isla'), h('a', {href: RUTAS_URL, text: 'Movilidad marítima'}), btn('historia'), h('a', {href: SPECIES_URL, text: 'Especies'}), btn('cuenta'));
 }
 function go(ch, scroll = true) {
   if (ch === 'vida') { location.href = SPECIES_URL; return; }
+  if (ch === 'mar') { location.href = RUTAS_URL; return; }
   if (!CHAPTERS.includes(ch)) ch = 'isla';
   state.ch = ch; document.body.dataset.ch = ch;
   clearSel();
