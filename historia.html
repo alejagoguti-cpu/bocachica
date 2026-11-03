@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#fffefa"><title>Historia y cartografía | Tierra Bomba</title><meta name="description" content="Atlas histórico de Tierra Bomba: seis planos de la bahía, capítulos y fuentes documentales."><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"><link rel="stylesheet" href="experience.css?v=tab-c-1"><link rel="stylesheet" href="territory-stories.css?v=1"><style>body{background:#fffefa}.atlas-loading{padding:32px;color:#113542}.atlas-loading h1{margin-bottom:16px}.atlas-loading a{text-decoration:underline}.history-reading label{display:block;margin:8px 0}.history-reading select{width:100%;max-width:580px}.history-mode.evidence-open .evidence-controls #history-model{background:#113542;color:#fffefa}</style></head><body>
+<main class="atlas-loading"><h1>Historia de Tierra Bomba</h1><p>Abriendo el archivo cartográfico…</p><a href="./">Volver a la isla ↗</a></main><div id="atlas-panel" hidden></div>
+<noscript>Activa JavaScript para recorrer los planos históricos.</noscript>
+<script type="module">
+import {createTerritoryStories} from './territory-stories.js?v=atlas-20261103-2';
+const stories=createTerritoryStories({map:{flyTo(){}},panel(label,html){document.querySelector('#atlas-panel').innerHTML=html;},sceneTitle(){},status(){},onResearch(){window.location.assign('./');},onMode(){window.location.assign('./');}});
+stories.show('history');
+</script></body></html>
