@@ -1,0 +1,1 @@
+export function pointAlong(points,cumulative,t){const d=Math.max(0,Math.min(1,t))*cumulative.at(-1);let lo=0,hi=points.length-1;while(lo+1<hi){const mid=(lo+hi)>>1;if(cumulative[mid]<=d)lo=mid;else hi=mid;}const f=(d-cumulative[lo])/(cumulative[hi]-cumulative[lo]||1);return[points[lo][0]+(points[hi][0]-points[lo][0])*f,points[lo][1]+(points[hi][1]-points[lo][1])*f];}
