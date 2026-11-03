@@ -3,7 +3,7 @@
 <main class="atlas-loading"><h1>Historia de Tierra Bomba</h1><p>Abriendo el archivo cartográfico…</p><a href="./">Volver a la isla ↗</a></main><div id="atlas-panel" hidden></div>
 <noscript>Activa JavaScript para recorrer los planos históricos.</noscript>
 <script type="module">
-import {createTerritoryStories} from './territory-stories.js?v=atlas-20261103-2';
+import {createTerritoryStories} from './territory-stories.js?v=atlas-restore-3';
 const stories=createTerritoryStories({map:{flyTo(){}},panel(label,html){document.querySelector('#atlas-panel').innerHTML=html;},sceneTitle(){},status(){},onResearch(){window.location.assign('./');},onMode(){window.location.assign('./');}});
 stories.show('history');
 </script></body></html>
