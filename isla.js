@@ -454,6 +454,7 @@ const STORIES = {
       h('div.actions', {}, h('button.btn.dark', {type: 'submit', text: 'Enviar por WhatsApp'}), h('button.btn', {type: 'button', id: 'copy', onclick: copy, text: 'Copiar el texto'}))),
     h('h3.sec', {text: 'Más de este proyecto'}),
     h('div.links', {},
+      h('a', {href: 'maqueta/'}, h('b', {text: 'La isla y Cartagena en 3D'}), h('span', {text: 'Maqueta sin foto'})),
       h('a', {href: 'historia.html'}, h('b', {text: 'Historia y cartografía'}), h('span', {text: 'Atlas histórico'})),
       h('a', {href: 'movilidad.html'}, h('b', {text: 'La isla en movimiento'}), h('span', {text: 'Recorridos y equipamientos'})),
       h('a', {href: 'indicadores.html'}, h('b', {text: 'Indicadores'}), h('span', {text: 'Lecturas satelitales'})),

@@ -1,0 +1,17 @@
+{
+ "nota": "Registro del modelo Revit (x este, y norte, en metros) contra OpenStreetMap: lon/lat = f(x,y). Ver CREDITOS.txt",
+ "lat0": 10.375,
+ "lon0": -75.575,
+ "kx": 109499.93397642512,
+ "ky": 110574,
+ "sc": 0.9997811385884072,
+ "rot": -0.002120983719619421,
+ "tx": 33.07195981844302,
+ "ty": 185.76940648226775,
+ "mosaico": {
+  "z": 18,
+  "x0": 76033,
+  "y0": 123470,
+  "px": 3328
+ }
+}
