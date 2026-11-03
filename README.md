@@ -42,3 +42,12 @@ node --check territory-model.js
 node --check architecture-network.js
 
 Revisar geometría insular, carga del modelo real, cambios de material y relieve, navegación, cinco recorridos, guía, fases, fichas, equipo, logos y PDF. El entorno de revisión tiene WebGL deshabilitado: se verifican la rasterización de geometría por software y la red CSS3D. La rama WebGL requiere revisión en un dispositivo con aceleración gráfica.
+
+
+## Construcciones y relato de presentación
+
+Se incorpora assets/construcciones_tierra_bomba.json.gz: 2.600 huellas únicas del archivo de tesis, recortadas por su máscara insular; se eliminaron 128 registros repetidos. No se presenta como censo completo de todas las construcciones. La inversión del sistema de coordenadas se contrastó contra la proyección del archivo, con error máximo por redondeo inferior a 0,01 m en una muestra de 100 vértices.
+
+Las alturas de contexto son las estimadas por el script de la fuente (4 y 7 metros), no alturas de levantamiento. No se derivan ni afirman alturas reales de las casas. La interfaz lo indica junto al control de capa y en la ficha de contexto. El modelo Revit suministrado se conserva como capa separada, desactivada inicialmente para evitar superposición de representaciones.
+
+El modo Presentar propuesta organiza nueve pasos: territorio, problema de conocimiento disperso, memorias, arquitectura del Aula, seis líneas, piloto escolar candidato, método y evaluación, articulación con ACOPI y decisión de siguiente paso. Cada paso cambia el encuadre, formula una idea y una pregunta, y enlaza con el fundamento del PDF. Los créditos aparecen en el inicio y en Equipo.
